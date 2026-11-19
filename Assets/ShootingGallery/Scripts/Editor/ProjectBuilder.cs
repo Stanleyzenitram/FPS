@@ -71,19 +71,21 @@ public static class ProjectBuilder
 
     private static Material _floor, _wall, _cover, _outdoor, _exit, _targetMat, _bulletMat,
         _enemyBulletMat, _weaponMat, _flashMat, _trailMat, _weaponArMat, _weaponM9Mat,
-        _sleeveMat, _gloveMat, _armsMat, _sectionA, _sectionB, _sectionC, _towerBrickMat;
+        _sleeveMat, _gloveMat, _armsMat, _sectionA, _sectionB, _sectionC, _towerBrickMat,
+        _grassMat;
     private static GameObject _playerPrefab, _targetPrefab, _botPrefab, _bossPrefab,
         _bulletPrefab, _enemyBulletPrefab, _managerPrefab, _muzzleFlashPrefab;
     private static AudioClip _gun, _hit, _hurt, _win, _lose, _reload;
     private static Texture2D _arTexture, _m9Texture, _soldierTexture,
-        _armsColor, _armsNormal, _armsRoughness, _armsOcclusion;
+        _armsColor, _armsNormal, _armsRoughness, _armsOcclusion, _grassTexture;
     private static Font _hudFont;
     private static Texture2D _healthIcon, _ammoIcon, _hitmarkerIcon;
     private static GameObject _soldierAsset, _armsAsset, _bulletModel, _enemyBulletModel;
     private static GameObject[] _packWeapons;
     private static GameObject _m9Asset;
     private static GameObject _pavement, _solidWall, _fullWall, _decoColumn, _doorFrame,
-        _tower, _crate, _barrel, _stone, _bench, _torch;
+        _tower, _crate, _barrel, _stone, _bench, _torch,
+        _grassA, _grassB, _grassC, _grassD;
     // Los prefabs de Sun_Temple no tienen el pivote en el centro de su malla:
     // guardamos el desplazamiento para alinear los modulos por bounds, no por pivot.
     private static Vector3 _pavementOffset, _solidWallOffset, _fullWallOffset;
@@ -193,6 +195,13 @@ public static class ProjectBuilder
         _towerBrickMat = AssetDatabase.LoadAssetAtPath<Material>(
             "Assets/Sun_Temple/Content/Meshes/Main/Materials/Bricks_Plain.mat");
 
+        // Hierba de Sun_Temple: modelos Fol_Grass y su textura con canal alfa.
+        _grassTexture = ConfigureGrassTexture(TempleRoot + "Content/Textures/fol_grass1.tif");
+        _grassA = TempleModel("Fol_Grass_A.fbx");
+        _grassB = TempleModel("Fol_Grass_B.fbx");
+        _grassC = TempleModel("Fol_Grass_C.fbx");
+        _grassD = TempleModel("Fol_Grass_D.fbx");
+
         // Assets de HUD opcionales: basta con dejarlos en estas carpetas y regenerar.
         _hudFont = LoadFirstAsset<Font>(Root + "/Fonts");
         _healthIcon = LoadUiTexture("health", "vida", "salud");
@@ -218,6 +227,12 @@ public static class ProjectBuilder
     private static GameObject TempleAsset(string relativePath)
     {
         return AssetDatabase.LoadAssetAtPath<GameObject>(TemplePrefabsRoot + relativePath);
+    }
+
+    private static GameObject TempleModel(string file)
+    {
+        return AssetDatabase.LoadAssetAtPath<GameObject>(
+            TempleRoot + "Content/Meshes/Main/" + file);
     }
 
     /// <summary>Devuelve el primer asset de un tipo dentro de una carpeta.</summary>
@@ -314,6 +329,23 @@ public static class ProjectBuilder
         return AssetDatabase.LoadAssetAtPath<Texture2D>(path);
     }
 
+    /// <summary>Textura de hierba con alfa para recortar las hojas.</summary>
+    private static Texture2D ConfigureGrassTexture(string path)
+    {
+        TextureImporter importer = AssetImporter.GetAtPath(path) as TextureImporter;
+        if (importer != null)
+        {
+            importer.textureType = TextureImporterType.Default;
+            importer.sRGBTexture = true;
+            importer.alphaSource = TextureImporterAlphaSource.FromInput;
+            importer.alphaIsTransparency = true;
+            importer.wrapMode = TextureWrapMode.Repeat;
+            importer.maxTextureSize = 2048;
+            importer.SaveAndReimport();
+        }
+        return AssetDatabase.LoadAssetAtPath<Texture2D>(path);
+    }
+
     // ----------------------------------------------------------- materiales ---
     private static Material MakeMaterial(string name, Color color)
     {
@@ -390,6 +422,7 @@ public static class ProjectBuilder
         _sleeveMat = MakeTexturedMaterial("Arms_Sleeve", Color.white, _soldierTexture);
         _gloveMat = MakeMaterial("Arms_Glove", new Color(0.07f, 0.08f, 0.07f));
         _armsMat = MakeArmsMaterial();
+        _grassMat = MakeGrassMaterial();
         _flashMat = MakeFlashMaterial();
         _trailMat = MakeTrailMaterial();
     }
@@ -469,7 +502,9 @@ public static class ProjectBuilder
         if (_armsOcclusion != null && mat.HasProperty("_OcclusionMap"))
         {
             mat.SetTexture("_OcclusionMap", _armsOcclusion);
-            mat.SetFloat("_OcclusionStrength", 1f);
+            // El AO original oscura demasiado la textura (color medio 58,51,37)
+            // y las manos se confundian con el fondo de la galeria.
+            mat.SetFloat("_OcclusionStrength", 0.35f);
             mat.EnableKeyword("_OCCLUSIONMAP");
         }
         if (_armsRoughness != null && mat.HasProperty("_MetallicGlossMap"))
@@ -479,6 +514,38 @@ public static class ProjectBuilder
         }
         if (mat.HasProperty("_Metallic")) mat.SetFloat("_Metallic", 0f);
         if (mat.HasProperty("_Smoothness")) mat.SetFloat("_Smoothness", 0.45f);
+        // Emision suave: la textura del modelo es muy oscura y, aunque las manos
+        // se dibujaban, no se distinguian del pavimento. Asi se ven con cualquier
+        // iluminacion sin perder los detalles del mapa de color.
+        if (mat.HasProperty("_EmissionColor"))
+        {
+            mat.SetColor("_EmissionColor", new Color(0.34f, 0.26f, 0.19f));
+            mat.globalIlluminationFlags = MaterialGlobalIlluminationFlags.RealtimeEmissive;
+            mat.EnableKeyword("_EMISSION");
+        }
+        EditorUtility.SetDirty(mat);
+        return mat;
+    }
+
+    /// <summary>Hierba recortada con la textura de Sun_Temple (alfa en las hojas).</summary>
+    private static Material MakeGrassMaterial()
+    {
+        Material mat = MakeMaterial("Grass_Foliage", Color.white);
+        if (_grassTexture != null)
+        {
+            if (mat.HasProperty("_BaseMap")) mat.SetTexture("_BaseMap", _grassTexture);
+            mat.mainTexture = _grassTexture;
+        }
+        if (mat.HasProperty("_Surface")) mat.SetFloat("_Surface", 0f);
+        if (mat.HasProperty("_Blend")) mat.SetFloat("_Blend", 0f);
+        if (mat.HasProperty("_AlphaClip")) mat.SetFloat("_AlphaClip", 1f);
+        if (mat.HasProperty("_Cutoff")) mat.SetFloat("_Cutoff", 0.45f);
+        if (mat.HasProperty("_Cull")) mat.SetFloat("_Cull", 0f);
+        if (mat.HasProperty("_Metallic")) mat.SetFloat("_Metallic", 0f);
+        if (mat.HasProperty("_Smoothness")) mat.SetFloat("_Smoothness", 0.05f);
+        mat.EnableKeyword("_ALPHATEST_ON");
+        mat.SetOverrideTag("RenderType", "TransparentCutout");
+        mat.renderQueue = 2450;
         EditorUtility.SetDirty(mat);
         return mat;
     }
@@ -1186,7 +1253,12 @@ public static class ProjectBuilder
         arms.leftHand = leftHand;
         arms.magazineProp = reloadMag;
         arms.handsRoot = handsRoot;
-        arms.pistolHandsScale = 0.92f;
+        // El modelo importado mide 1,4 m y metia el hombro detras de la camara:
+        // al estar la camara dentro de la malla no se veia nada por backface
+        // culling. Reducido, los hombros quedan delante y las munecas siguen
+        // en los puntos de agarre del arma.
+        arms.rifleHandsScale = 0.55f;
+        arms.pistolHandsScale = 0.50f;
         arms.leftArmBone = leftArmBone;
         arms.leftElbowBone = leftElbowBone;
         arms.leftWristBone = leftWristBone;
@@ -1195,6 +1267,11 @@ public static class ProjectBuilder
         arms.rightWristBone = rightWristBone;
         arms.leftFingerBones = CollectFingerBones(leftWristBone);
         arms.rightFingerBones = CollectFingerBones(rightWristBone);
+
+        // Horneamos la pose en el prefab: si Update no llega a ejecutarse en el
+        // primer frame, los huesos ya estan en los agarres y las manos se ven.
+        arms.SendMessage("Awake");
+        arms.SendMessage("Update");
 
         _playerPrefab = SavePrefab(root, "Player_FPS");
     }
@@ -1258,9 +1335,21 @@ public static class ProjectBuilder
         light.type = LightType.Directional;
         light.intensity = intensity;
         light.color = new Color(1f, 0.91f, 0.76f);
+        light.shadows = LightShadows.Soft;
+        light.shadowStrength = 0.8f;
         lightGo.transform.position = position;
         lightGo.transform.rotation = Quaternion.Euler(48f, -28f, 0f);
-        RenderSettings.ambientLight = new Color(0.48f, 0.46f, 0.40f);
+
+        // Luz de relleno fria desde el lado opuesto: sin ella todo parecia plano.
+        GameObject fillGo = new GameObject("Luz_Reflejo");
+        Light fill = fillGo.AddComponent<Light>();
+        fill.type = LightType.Directional;
+        fill.intensity = intensity * 0.35f;
+        fill.color = new Color(0.62f, 0.74f, 1f);
+        fillGo.transform.position = position;
+        fillGo.transform.rotation = Quaternion.Euler(32f, 152f, 0f);
+
+        RenderSettings.ambientLight = new Color(0.42f, 0.45f, 0.50f);
     }
 
     /// <summary>Instancia un modulo de Sun_Temple solo como decoracion.</summary>
@@ -1295,6 +1384,45 @@ public static class ProjectBuilder
             }
         }
         return go;
+    }
+
+    /// <summary>Matiz de hierba importada: sin colision y con textura recortada.</summary>
+    private static GameObject PlaceGrass(string name, GameObject prefab, Vector3 pos,
+        float yaw, float scale)
+    {
+        if (prefab == null || _grassMat == null) return null;
+        GameObject go = PrefabUtility.InstantiatePrefab(prefab) as GameObject;
+        go.name = name;
+        go.transform.position = pos;
+        go.transform.rotation = Quaternion.Euler(0f, yaw, 0f);
+        go.transform.localScale = Vector3.one * scale;
+        ApplyWeaponMaterial(go, _grassMat);
+        foreach (Collider collider in go.GetComponentsInChildren<Collider>(true))
+            Object.DestroyImmediate(collider);
+        foreach (Renderer renderer in go.GetComponentsInChildren<Renderer>(true))
+        {
+            renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            renderer.receiveShadows = false;
+        }
+        return go;
+    }
+
+    /// <summary>Distribuye hierba de forma determinista dentro de un rectangulo.</summary>
+    private static void ScatterGrass(float minX, float maxX, float minZ, float maxZ,
+        int count, float scale, string prefix)
+    {
+        GameObject[] models = { _grassA, _grassB, _grassC, _grassD };
+        for (int i = 0; i < count; i++)
+        {
+            GameObject prefab = models[i % models.Length];
+            if (prefab == null) continue;
+            float u = Mathf.Repeat((i + 0.5f) * 0.6180339f, 1f);
+            float v = Mathf.Repeat((i + 0.5f) * 0.7548776f, 1f);
+            float s = scale * (0.75f + 0.5f * Mathf.Repeat(i * 0.371f, 1f));
+            PlaceGrass($"{prefix}_{i:00}", prefab,
+                new Vector3(Mathf.Lerp(minX, maxX, u), 0.02f, Mathf.Lerp(minZ, maxZ, v)),
+                (i * 47f) % 360f, s);
+        }
     }
 
     /// <summary>
@@ -1395,6 +1523,7 @@ public static class ProjectBuilder
     private static void BuildArena()
     {
         TilePavement(-22f, 22f, -27f, 51f, "Arena_Pavimento");
+        ScatterGrass(-21f, 21f, -26f, 50f, 70, 36f, "Arena_Hierba");
 
         MakeCollider("Col_Suelo", new Vector3(0f, -0.5f, 12f), new Vector3(46f, 1f, 80f));
         MakeCollider("Col_Pared_izquierda", new Vector3(-22f, 3f, 12f), new Vector3(1f, 6f, 80f));
@@ -1434,6 +1563,7 @@ public static class ProjectBuilder
     private static void BuildBossArena()
     {
         TilePavement(-34f, 34f, -34f, 74f, "Boss_Pavimento");
+        ScatterGrass(-33f, 33f, -33f, 73f, 110, 40f, "Boss_Hierba");
 
         MakeCollider("Col_Boss_Suelo", new Vector3(0f, -0.5f, 20f), new Vector3(70f, 1f, 110f));
         MakeCollider("Col_Boss_Izquierda", new Vector3(-35f, 4f, 20f), new Vector3(1f, 8f, 110f));
@@ -1505,6 +1635,7 @@ public static class ProjectBuilder
     {
         TilePavement(-15f, 15f, -16f, 16f, "Galeria_Pavimento");
         TilePavement(14f, 70f, -40f, 40f, "Exterior_Pavimento");
+        ScatterGrass(16f, 69f, -39f, 39f, 90, 34f, "Exterior_Hierba");
 
         // --- Colisiones (invisibles) exactamente donde estaban los muros viejos
         MakeCollider("Col_Suelo_Galeria", new Vector3(0f, -0.5f, 0f), new Vector3(30f, 1f, 32f));
@@ -1942,10 +2073,11 @@ public static class ProjectBuilder
                 if (bot.GetComponent<CharacterController>() != null) withController++;
             }
 
-            int bossModules = 0;
+            int bossModules = 0, grassCount = 0;
             foreach (GameObject go in Object.FindObjectsByType<GameObject>())
             {
                 string n = go.name;
+                if (n.Contains("_Hierba_")) grassCount++;
                 if (n.StartsWith("Muro_Boss_") || n.StartsWith("Columna_Boss_") ||
                     n.StartsWith("Torre_Boss_") || n.StartsWith("Puerta_Boss_") ||
                     n.StartsWith("Antorcha_Boss_") || n.StartsWith("Cobertura_Boss_") ||
@@ -1959,7 +2091,8 @@ public static class ProjectBuilder
                       $"acotados={bounded} detectanSalida={detecting} armados={ranged} " +
                       $"audioDisparo={withAudio} conColision={withController} modulosBoss={bossModules} " +
                       $"puertaCol={doorColliders} dianasVisibles={dianasVisibles} " +
-                      $"armasMuro={wallWeapons.Length} templeTexturas={templeTextured}/{templeMaterials}");
+                      $"armasMuro={wallWeapons.Length} hierba={grassCount} " +
+                      $"templeTexturas={templeTextured}/{templeMaterials}");
             foreach (WeaponWallSwitch wallWeapon in wallWeapons)
                 Debug.Log($"[VALIDATE]   armaMuro: {wallWeapon.name} slot={wallWeapon.weaponIndex} " +
                           $"col={(wallWeapon.GetComponent<Collider>() != null)}");
@@ -1982,6 +2115,7 @@ public static class ProjectBuilder
                           $"huesos={(a.leftArmBone != null && a.rightArmBone != null)} " +
                           $"procedurales={(a.rightForearm != null && a.leftForearm != null)} " +
                           $"dedos={((a.leftFingerBones == null ? 0 : a.leftFingerBones.Length) + (a.rightFingerBones == null ? 0 : a.rightFingerBones.Length))} " +
+                          $"escala={a.rifleHandsScale:0.00} " +
                           $"cargador={(a.magazineProp != null)} arma={(a.weapon != null)}");
             }
             foreach (GameManager gm in managers)

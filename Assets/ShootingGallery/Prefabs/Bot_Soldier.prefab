@@ -1,6 +1,6 @@
 %YAML 1.1
 %TAG !u! tag:unity3d.com,2011:
---- !u!1 &635546513592421658
+--- !u!1 &505280851420117910
 GameObject:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -8,7 +8,7 @@ GameObject:
   m_PrefabAsset: {fileID: 0}
   serializedVersion: 6
   m_Component:
-  - component: {fileID: 4890856672614903104}
+  - component: {fileID: 4543333075946174973}
   m_Layer: 0
   m_Name: Muzzle
   m_TagString: Untagged
@@ -16,22 +16,22 @@ GameObject:
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!4 &4890856672614903104
+--- !u!4 &4543333075946174973
 Transform:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 635546513592421658}
+  m_GameObject: {fileID: 505280851420117910}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 1.296, z: 0.648}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
-  m_Father: {fileID: 3814117666377347623}
+  m_Father: {fileID: 2803230161973096654}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!1 &2433636557161956181
+--- !u!1 &4924077150729756191
 GameObject:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -39,11 +39,11 @@ GameObject:
   m_PrefabAsset: {fileID: 0}
   serializedVersion: 6
   m_Component:
-  - component: {fileID: 3814117666377347623}
-  - component: {fileID: 3043620415826207517}
-  - component: {fileID: 3739661504921471362}
-  - component: {fileID: 9157764981697926159}
-  - component: {fileID: 177552323972399920}
+  - component: {fileID: 2803230161973096654}
+  - component: {fileID: 440998920651158868}
+  - component: {fileID: 1535892517531304767}
+  - component: {fileID: 269772651014192509}
+  - component: {fileID: 7539390891563696514}
   m_Layer: 0
   m_Name: Bot_Soldier
   m_TagString: Untagged
@@ -51,30 +51,30 @@ GameObject:
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!4 &3814117666377347623
+--- !u!4 &2803230161973096654
 Transform:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2433636557161956181}
+  m_GameObject: {fileID: 4924077150729756191}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
-  - {fileID: 6461005554203295445}
-  - {fileID: 4890856672614903104}
+  - {fileID: 3729390982884358021}
+  - {fileID: 4543333075946174973}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!143 &3043620415826207517
+--- !u!143 &440998920651158868
 CharacterController:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2433636557161956181}
+  m_GameObject: {fileID: 4924077150729756191}
   m_Material: {fileID: 0}
   m_IncludeLayers:
     serializedVersion: 2
@@ -93,13 +93,13 @@ CharacterController:
   m_SkinWidth: 0.04
   m_MinMoveDistance: 0.001
   m_Center: {x: 0, y: 0.9, z: 0}
---- !u!114 &3739661504921471362
+--- !u!114 &1535892517531304767
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2433636557161956181}
+  m_GameObject: {fileID: 4924077150729756191}
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 3b2fc64ad4ade9b449b030649719a608, type: 3}
@@ -109,13 +109,13 @@ MonoBehaviour:
   points: 250
   hp: 2
   hitClip: {fileID: 8300000, guid: f5260b08ae46d8f4788d3c80f6994ad7, type: 3}
---- !u!82 &9157764981697926159
+--- !u!82 &269772651014192509
 AudioSource:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2433636557161956181}
+  m_GameObject: {fileID: 4924077150729756191}
   m_Enabled: 1
   serializedVersion: 4
   OutputAudioMixerGroup: {fileID: 0}
@@ -206,13 +206,13 @@ AudioSource:
     m_PreInfinity: 2
     m_PostInfinity: 2
     m_RotationOrder: 4
---- !u!114 &177552323972399920
+--- !u!114 &7539390891563696514
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2433636557161956181}
+  m_GameObject: {fileID: 4924077150729756191}
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 6e9d7737f9b49a4409122d12fb7c6348, type: 3}
@@ -227,21 +227,21 @@ MonoBehaviour:
   maxXZ: {x: 100, y: 100}
   requiresExitDetection: 0
   activationX: 15.5
-  enemyBulletPrefab: {fileID: 6472303193425262831, guid: c13b7d5e7066ecc47ad4142c9625d9ed, type: 3}
-  muzzle: {fileID: 4890856672614903104}
+  enemyBulletPrefab: {fileID: 6382363791423353058, guid: c13b7d5e7066ecc47ad4142c9625d9ed, type: 3}
+  muzzle: {fileID: 4543333075946174973}
   fireRange: 30
   fireInterval: 2.2
   fireSpread: 3.5
   bulletSpeed: 42
   fireClip: {fileID: 8300000, guid: a795b5e4c1a4ca441a9c7b082c433a3b, type: 3}
-  sfxSource: {fileID: 9157764981697926159}
---- !u!1001 &2092059107657654474
+  sfxSource: {fileID: 269772651014192509}
+--- !u!1001 &8602741341393201562
 PrefabInstance:
   m_ObjectHideFlags: 0
   serializedVersion: 2
   m_Modification:
     serializedVersion: 3
-    m_TransformParent: {fileID: 3814117666377347623}
+    m_TransformParent: {fileID: 2803230161973096654}
     m_Modifications:
     - target: {fileID: 4945628578945621535, guid: b0d15748d7c36be4da7224de0a215c55, type: 3}
       propertyPath: m_LocalScale.x
@@ -308,8 +308,8 @@ PrefabInstance:
     m_AddedGameObjects: []
     m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: b0d15748d7c36be4da7224de0a215c55, type: 3}
---- !u!4 &6461005554203295445 stripped
+--- !u!4 &3729390982884358021 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: 4945628578945621535, guid: b0d15748d7c36be4da7224de0a215c55, type: 3}
-  m_PrefabInstance: {fileID: 2092059107657654474}
+  m_PrefabInstance: {fileID: 8602741341393201562}
   m_PrefabAsset: {fileID: 0}

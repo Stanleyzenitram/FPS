@@ -9,6 +9,9 @@ FPS militar con menu de inicio/final, arsenal con recarga y tres niveles.
 Los escenarios usan MODULOS DE Sun_Temple (pavimento, muros, columnas,
 marco de puerta, torres, cajas, barriles y rocas). Las colisiones siguen
 siendo cajas invisibles generadas por codigo para no cambiar la jugabilidad.
+ Tambien se anadio hierba de Sun_Temple (modelos Fol_Grass y textura con alfa)
+ en el campo exterior, la arena de bots y el templo del jefe, ademas de una
+ luz de relleno y sombras suaves para que el escenario no se viera tan plano.
 Ademas se corrigieron dos scripts de editor del paquete Sun_Temple que
 usaban APIs anticuadas y no dejaban compilar en Unity 6.
 Los enemigos usan TU ASSET PERSONAL de soldado:
@@ -170,7 +173,17 @@ a generar el proyecto.
   izquierda sigue acompañando la recarga. Si el FBX no estuviera disponible,
   quedan unos brazos procedurales de respaldo (manga camuflada y guantes)
   con el mismo comportamiento. El modelo no tiene collider ni proyecta
-  sombra, asi que no bloquea los disparos.
+  sombra, asi que no bloquea los disparos. El modelo importado media 1,4 m y
+  metia el hombro detras de la camara: al estar la camara dentro de la malla
+  no se veia nada. Ahora se escala a 0,50 (0,46 con pistola); las muñecas
+  siguen en los agarres, pero los hombros quedan delante y las manos se ven.
+  La pose tambien se hornea en Player_FPS.prefab al generar: los huesos ya
+  estan en los agarres antes de que Update corra por primera vez. Ademas se
+  verifico en Play mode real: la malla se dibuja (mas de 8000 pixeles), pero
+  la textura original era muy oscura (color medio 58,51,37) y las manos se
+  confundian con el pavimento. El material reduce el AO a 0,35 y anade una
+  emision suave, con lo que el color medio en pantalla sube a 167,150,133.
+  La escala final es 0,55 con fusil y 0,50 con pistola.
 - Puntos de agarre por slot: cada arma guarda sus propios puntos de mano
    derecha y mano de apoyo, medidos sobre su prefab. FirstPersonArms interpola
    entre esos puntos al cambiar de arma, asi que la pose funciona con los
