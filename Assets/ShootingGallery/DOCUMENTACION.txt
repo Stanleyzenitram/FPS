@@ -48,17 +48,37 @@ R ........................ recargar el arma actual
 Espacio .................. saltar
 Escape ................... soltar el cursor
 
-3. HUD
+3. HUD (ESTILO SHOOTER)
 ------------------------------------------------------------------------
-Arriba-izquierda: panel oscuro con borde cian: nivel, puntuación, tres
-segmentos de vida, objetivo restante y atajos (incluye clic derecho).
-Abajo-derecha: ARSENAL con borde dorado, las dos armas, munición
-cargador/reserva en grande, "BALAS RESTANTES", estado del cargador,
-"MIRA ACTIVA" al apuntar y barra de progreso al recargar.
-Centro: punto de mira clásico blanco con contorno negro y punto central;
-se pone rojo al acertar y se reduce a un punto al usar la mira ADS.
-También aparecen "+puntos" flotantes y el banner de aviso.
+Arriba-izquierda: tarjeta de OPERADOR con nivel, puntuación en grande y
+objetivo restante / estado del jefe.
+Arriba-centro: brújula con rumbo en grados, puntos cardinales en español
+y marca central dorada; gira con la cámara del jugador.
+Arriba-derecha: REGISTRO DE BAJAS con las últimas 3 eliminaciones y sus
+puntos, con desvanecido progresivo.
+Abajo-izquierda: panel de VIDA con número grande, icono de cruz, tres
+segmentos y estado ESTABLE / CRÍTICO en rojo al bajar de vida.
+Abajo-derecha: panel de ARSENAL con icono de munición, cargador grande,
+reserva, chips de las dos armas (activa resaltada), total de balas,
+estado de recarga y aviso parpadeante "MUNICIÓN BAJA" cuando el cargador
+baja del 25 %. La barra muestra la recarga o, si no recargas, el cargador.
+Centro: se mantiene la mira clásica blanca con contorno negro; al acertar
+aparece además una X táctica (hitmarker). En ADS la cruz se reduce a un
+punto y la X se hace más pequeña.
+También aparecen "+puntos" flotantes y el banner táctico de aviso.
 El fondo se tiñe de rojo brevemente al recibir daño.
+Toda la HUD escala con la resolución (de 0,72x a 1,25x).
+
+Assets de HUD opcionales (no son obligatorios): la HUD funciona con
+rectángulos e iconos dibujados por código. Si quieres mejorarla, deja:
+  - Una fuente TTF/OTF en Assets/ShootingGallery/Fonts/ (se detecta la
+    primera y se aplica a HUD, botones y menú).
+  - PNG transparentes en Assets/ShootingGallery/Art/UI/ con nombres que
+    contengan: health / vida / salud, ammo / municion / bullet, y
+    hitmarker / impacto / hit. El generador los asigna solos al ejecutar
+    "Shooting Gallery > Generar proyecto".
+Si no aparecen, revisa que sean Textures (Sprite es compatible) y vuelve
+a generar el proyecto.
 
 4. ARMAS, SONIDO, FOGONAZO Y RECOIL
 ------------------------------------------------------------------------
@@ -105,6 +125,8 @@ Assets/ShootingGallery/
   Animations/ ...... Soldier.controller (Idle / Run / Shoot)
   Materials/ ....... materiales URP, incluido el fogonazo transparente
   Art/ ............. diana, X de respaldo y muzzle_flash.png
+  Art/UI/ .......... iconos opcionales de vida, munición y hitmarker
+  Fonts/ ........... fuente TTF/OTF opcional para HUD y menú
   Audio/ ........... acierto, dano, victoria, derrota y recarga
   Levels/ .......... configuracion de cada nivel
   Scenes/ .......... menu + 3 niveles

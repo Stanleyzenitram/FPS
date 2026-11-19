@@ -7,6 +7,19 @@ public class MenuController : MonoBehaviour
     private static readonly Color Accent = new Color(0.25f, 0.88f, 1f, 0.95f);
     private static readonly Color Gold = new Color(1f, 0.82f, 0.28f, 0.95f);
 
+    /// <summary>Fuente opcional detectada en Assets/ShootingGallery/Fonts al generar.</summary>
+    public Font uiFont;
+
+    private GUIStyle Label(int size, TextAnchor anchor, Color color, bool bold = false)
+    {
+        return UIStyles.Label(size, anchor, color, bold, uiFont);
+    }
+
+    private GUIStyle Button(int size)
+    {
+        return UIStyles.Button(size, uiFont);
+    }
+
     private void Start()
     {
         AudioListener.volume = 1f;
@@ -25,13 +38,13 @@ public class MenuController : MonoBehaviour
 
         int titleSize = Mathf.RoundToInt(Mathf.Min(w, h) * 0.085f);
         GUI.Label(new Rect(0, h * 0.12f, w, 84f), "SHOOTING GALLERY",
-            UIStyles.Label(titleSize, TextAnchor.MiddleCenter, Gold, true));
+            Label(titleSize, TextAnchor.MiddleCenter, Gold, true));
         GUI.Label(new Rect(0, h * 0.24f, w, 40f), "FPS MILITAR  //  3 NIVELES  //  ARSENAL TÁCTICO",
-            UIStyles.Label(21, TextAnchor.MiddleCenter, Accent, true));
+            Label(21, TextAnchor.MiddleCenter, Accent, true));
 
         float bw = Mathf.Min(340f, w * 0.7f);
         float bx = (w - bw) * 0.5f;
-        GUIStyle button = UIStyles.Button(22);
+        GUIStyle button = Button(22);
 
         if (GUI.Button(new Rect(bx, h * 0.35f, bw, 48f), "EMPEZAR PARTIDA", button))
         {
@@ -48,7 +61,7 @@ public class MenuController : MonoBehaviour
         UIStyles.Fill(new Rect(px, py, pw, ph), new Color(0.03f, 0.055f, 0.085f, 0.9f));
         UIStyles.Fill(new Rect(px, py, 4f, ph), Accent);
 
-        GUIStyle small = UIStyles.Label(16, TextAnchor.MiddleLeft, new Color(0.78f, 0.84f, 0.9f));
+        GUIStyle small = Label(16, TextAnchor.MiddleLeft, new Color(0.78f, 0.84f, 0.9f));
         GUI.Label(new Rect(px + 20f, py + 12f, pw - 40f, 26f),
             "FLECHAS / WASD  mover      RATÓN  apuntar      CLIC IZQ.  disparar", small);
         GUI.Label(new Rect(px + 20f, py + 42f, pw - 40f, 26f),
@@ -57,6 +70,6 @@ public class MenuController : MonoBehaviour
             "ESPACIO  saltar      ESC  soltar el cursor", small);
         GUI.Label(new Rect(px + 20f, py + 104f, pw - 40f, 26f),
             "Nivel 1: galería + campo     Nivel 2: bots     Nivel 3: jefe final",
-            UIStyles.Label(15, TextAnchor.MiddleLeft, new Color(0.6f, 0.68f, 0.76f)));
+            Label(15, TextAnchor.MiddleLeft, new Color(0.6f, 0.68f, 0.76f)));
     }
 }

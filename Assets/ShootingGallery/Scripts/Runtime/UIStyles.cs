@@ -3,7 +3,8 @@ using UnityEngine;
 /// <summary>Estilos IMGUI compartidos por el HUD y los menus.</summary>
 public static class UIStyles
 {
-    public static GUIStyle Label(int size, TextAnchor anchor, Color color, bool bold = false)
+    public static GUIStyle Label(int size, TextAnchor anchor, Color color,
+        bool bold = false, Font font = null)
     {
         GUIStyle style = new GUIStyle(GUI.skin.label)
         {
@@ -12,11 +13,12 @@ public static class UIStyles
             fontStyle = bold ? FontStyle.Bold : FontStyle.Normal,
             wordWrap = true
         };
+        if (font != null) style.font = font;
         style.normal.textColor = color;
         return style;
     }
 
-    public static GUIStyle Button(int size)
+    public static GUIStyle Button(int size, Font font = null)
     {
         GUIStyle style = new GUIStyle(GUI.skin.button)
         {
@@ -24,6 +26,7 @@ public static class UIStyles
             fontStyle = FontStyle.Bold,
             fixedHeight = 46
         };
+        if (font != null) style.font = font;
         return style;
     }
 

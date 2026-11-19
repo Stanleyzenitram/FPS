@@ -1,6 +1,6 @@
 %YAML 1.1
 %TAG !u! tag:unity3d.com,2011:
---- !u!1 &7284310405073875968
+--- !u!1 &5001405577126931435
 GameObject:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -8,9 +8,9 @@ GameObject:
   m_PrefabAsset: {fileID: 0}
   serializedVersion: 6
   m_Component:
-  - component: {fileID: 6220397785349296414}
-  - component: {fileID: 8653770983673809387}
-  - component: {fileID: 7294745060467677603}
+  - component: {fileID: 7021760640643340892}
+  - component: {fileID: 741663058612345230}
+  - component: {fileID: 4390962230364415577}
   m_Layer: 0
   m_Name: GameManager
   m_TagString: Untagged
@@ -18,13 +18,13 @@ GameObject:
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!4 &6220397785349296414
+--- !u!4 &7021760640643340892
 Transform:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 7284310405073875968}
+  m_GameObject: {fileID: 5001405577126931435}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
@@ -33,13 +33,13 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!82 &8653770983673809387
+--- !u!82 &741663058612345230
 AudioSource:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 7284310405073875968}
+  m_GameObject: {fileID: 5001405577126931435}
   m_Enabled: 1
   serializedVersion: 4
   OutputAudioMixerGroup: {fileID: 0}
@@ -130,13 +130,13 @@ AudioSource:
     m_PreInfinity: 2
     m_PostInfinity: 2
     m_RotationOrder: 4
---- !u!114 &7294745060467677603
+--- !u!114 &4390962230364415577
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 7284310405073875968}
+  m_GameObject: {fileID: 5001405577126931435}
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 2ec52d2ea60f3f5428421b8230ef3e98, type: 3}
@@ -153,4 +153,8 @@ MonoBehaviour:
   hurtClip: {fileID: 8300000, guid: b1edac3661ab0994491cc4bee3548445, type: 3}
   winClip: {fileID: 8300000, guid: 5a1722a1b120f584b978d3b9182db0ba, type: 3}
   loseClip: {fileID: 8300000, guid: e2874c9ad196349489916601ea2dc183, type: 3}
-  sfxSource: {fileID: 8653770983673809387}
+  sfxSource: {fileID: 741663058612345230}
+  hudFont: {fileID: 0}
+  healthIcon: {fileID: 0}
+  ammoIcon: {fileID: 0}
+  hitmarkerIcon: {fileID: 0}

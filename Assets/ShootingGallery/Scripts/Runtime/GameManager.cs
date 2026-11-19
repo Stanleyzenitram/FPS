@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
@@ -23,6 +24,21 @@ public class GameManager : MonoBehaviour
     public AudioClip loseClip;
     public AudioSource sfxSource;
 
+    [Header("HUD opcional (lo detecta el generador)")]
+    public Font hudFont;
+    public Texture2D healthIcon;
+    public Texture2D ammoIcon;
+    public Texture2D hitmarkerIcon;
+
+    private sealed class KillFeedEntry
+    {
+        public string text;
+        public Color color;
+        public float time;
+    }
+
+    private readonly List<KillFeedEntry> _killFeed = new List<KillFeedEntry>();
+
     private int _score, _lives, _targetsLeft, _botsLeft;
     private bool _bossAlive, _gameOver, _won, _outOfAmmoGrace;
     private float _ammoGrace = -1f, _damageFlash, _messageTimer, _hitMarker, _popupTimer, _alertTimer;
@@ -33,7 +49,10 @@ public class GameManager : MonoBehaviour
     private static readonly Color Accent = new Color(0.25f, 0.88f, 1f, 0.95f);
     private static readonly Color Gold = new Color(1f, 0.82f, 0.28f, 0.95f);
     private static readonly Color Danger = new Color(1f, 0.32f, 0.26f, 0.95f);
-    private static readonly Color Panel = new Color(0.025f, 0.045f, 0.07f, 0.84f);
+    private static readonly Color Panel = new Color(0.015f, 0.03f, 0.05f, 0.84f);
+    private static readonly Color White = new Color(0.96f, 0.98f, 1f, 0.98f);
+    private static readonly Color Muted = new Color(0.62f, 0.71f, 0.8f, 0.95f);
+    private static readonly Color Dim = new Color(0.24f, 0.31f, 0.38f, 0.9f);
 
     public bool IsGameOver => _gameOver;
     public bool CanShoot => !_gameOver && WeaponRef != null && WeaponRef.HasAmmo;
@@ -65,6 +84,7 @@ public class GameManager : MonoBehaviour
 
     private void Update()
     {
+        UpdateKillFeed();
         if (_gameOver) return;
 
         _damageFlash = Mathf.Max(0f, _damageFlash - Time.deltaTime * 1.8f);
@@ -132,6 +152,12 @@ public class GameManager : MonoBehaviour
         _popupTimer = 0.9f;
         if (target.type == Target.TargetType.Diana) PlaySfx(hitClip, 0.8f);
 
+        string feedText = target.type == Target.TargetType.Boss ? "JEFE ABATIDO" :
+                          target.type == Target.TargetType.Bot ? "SOLDADO ELIMINADO" :
+                          "DIANA DESTRUIDA";
+        AddKillFeed(feedText + "  +" + target.points,
+            target.type == Target.TargetType.Diana ? Gold : Accent);
+
         switch (target.type)
         {
             case Target.TargetType.Diana: _targetsLeft--; break;
@@ -166,6 +192,23 @@ public class GameManager : MonoBehaviour
     {
         _message = text;
         _messageTimer = seconds;
+    }
+
+    private void AddKillFeed(string text, Color color)
+    {
+        _killFeed.Insert(0, new KillFeedEntry { text = text, color = color, time = 3.4f });
+        if (_killFeed.Count > 4) _killFeed.RemoveAt(_killFeed.Count - 1);
+    }
+
+    private void UpdateKillFeed()
+    {
+        for (int i = _killFeed.Count - 1; i >= 0; i--)
+        {
+            KillFeedEntry entry = _killFeed[i];
+            entry.time -= Time.deltaTime;
+            if (entry.time <= 0f) _killFeed.RemoveAt(i);
+            else _killFeed[i] = entry;
+        }
     }
 
     /// <summary>Reproduce un efecto en 2D para que siempre se escuche cerca del listener.</summary>
@@ -204,8 +247,11 @@ public class GameManager : MonoBehaviour
     {
         float w = Screen.width, h = Screen.height;
 
+        DrawCompass(w);
         DrawStatusPanel();
-        DrawArsenalPanel(w, h);
+        DrawKillFeed(w);
+        DrawHealthPanel(h);
+        DrawAmmoPanel(w, h);
         DrawCrosshair(w, h);
 
         if (_popupTimer > 0f && FirstPersonPlayer.Instance != null &&
@@ -214,8 +260,8 @@ public class GameManager : MonoBehaviour
             Vector3 screen = FirstPersonPlayer.Instance.viewCamera.WorldToScreenPoint(_popupWorld);
             if (screen.z > 0f)
             {
-                GUI.Label(new Rect(screen.x - 60f, h - screen.y - 50f, 120f, 30f), _popup,
-                    UIStyles.Label(22, TextAnchor.MiddleCenter, Gold, true));
+                GUI.Label(new Rect(screen.x - S(60f), h - screen.y - S(50f), S(120f), S(30f)), _popup,
+                    HudLabel(22, TextAnchor.MiddleCenter, Gold, true));
             }
         }
 
@@ -227,31 +273,72 @@ public class GameManager : MonoBehaviour
         if (_gameOver) DrawEndPanel(w, h);
     }
 
-    private static void DrawCrosshair(float w, float h)
+    private float UiScale => Mathf.Clamp(
+        Mathf.Min(Screen.width / 1920f, Screen.height / 1080f), 0.72f, 1.25f);
+
+    private float S(float value) => value * UiScale;
+
+    private GUIStyle HudLabel(int size, TextAnchor anchor, Color color, bool bold = false)
+    {
+        return UIStyles.Label(Mathf.RoundToInt(S(size)), anchor, color, bold, hudFont);
+    }
+
+    /// <summary>Marco angular típico de una HUD militar, hecho con rectangulos.</summary>
+    private void DrawHudFrame(Rect rect, Color accent)
+    {
+        UIStyles.Fill(rect, Panel);
+        float t = S(2f), corner = S(18f);
+        Color soft = new Color(accent.r, accent.g, accent.b, 0.25f);
+        UIStyles.Fill(new Rect(rect.x, rect.y, rect.width, t), soft);
+        UIStyles.Fill(new Rect(rect.x, rect.yMax - t, rect.width, t), soft);
+        UIStyles.Fill(new Rect(rect.x, rect.y, corner, t), accent);
+        UIStyles.Fill(new Rect(rect.xMax - corner, rect.y, corner, t), accent);
+        UIStyles.Fill(new Rect(rect.x, rect.yMax - t, corner, t), accent);
+        UIStyles.Fill(new Rect(rect.xMax - corner, rect.yMax - t, corner, t), accent);
+        UIStyles.Fill(new Rect(rect.x, rect.y, S(2f), rect.height),
+            new Color(accent.r, accent.g, accent.b, 0.42f));
+    }
+
+    private static string Cardinal(float degrees)
+    {
+        string[] names = { "N", "NE", "E", "SE", "S", "SO", "O", "NO" };
+        int index = Mathf.RoundToInt(Mathf.Repeat(degrees, 360f) / 45f) % 8;
+        return names[index];
+    }
+
+    private static float NormalizeAngle(float degrees) => Mathf.Repeat(degrees, 360f);
+
+    private void DrawCrosshair(float w, float h)
     {
         bool aiming = FirstPersonPlayer.Instance != null && FirstPersonPlayer.Instance.IsAiming;
-        bool hit = GameManager.Instance != null && GameManager.Instance._hitMarker > 0f;
+        bool hit = _hitMarker > 0f;
         float cx = Mathf.Round(w * 0.5f), cy = Mathf.Round(h * 0.5f);
 
         Color outline = new Color(0f, 0f, 0f, 0.75f);
         Color inner = hit ? new Color(1f, 0.35f, 0.3f, 1f) : new Color(1f, 1f, 1f, 0.95f);
+        float dot = S(2f), dotOutline = S(4f);
 
         // Al apuntar con la mira del arma, la cruz se reduce a un punto central.
         if (aiming)
         {
-            UIStyles.Fill(new Rect(cx - 2f, cy - 2f, 4f, 4f), outline);
-            UIStyles.Fill(new Rect(cx - 1f, cy - 1f, 2f, 2f), inner);
-            return;
+            UIStyles.Fill(new Rect(cx - dotOutline * 0.5f, cy - dotOutline * 0.5f,
+                dotOutline, dotOutline), outline);
+            UIStyles.Fill(new Rect(cx - dot * 0.5f, cy - dot * 0.5f, dot, dot), inner);
+        }
+        else
+        {
+            float gap = S(6f), len = S(6f), thickness = S(2f);
+            DrawCrossLine(new Rect(cx - thickness * 0.5f, cy - gap - len, thickness, len), inner, outline);
+            DrawCrossLine(new Rect(cx - thickness * 0.5f, cy + gap, thickness, len), inner, outline);
+            DrawCrossLine(new Rect(cx - gap - len, cy - thickness * 0.5f, len, thickness), inner, outline);
+            DrawCrossLine(new Rect(cx + gap, cy - thickness * 0.5f, len, thickness), inner, outline);
+
+            UIStyles.Fill(new Rect(cx - dotOutline * 0.5f, cy - dotOutline * 0.5f,
+                dotOutline, dotOutline), outline);
+            UIStyles.Fill(new Rect(cx - dot * 0.5f, cy - dot * 0.5f, dot, dot), inner);
         }
 
-        const float gap = 6f, len = 6f, thickness = 2f;
-        DrawCrossLine(new Rect(cx - thickness * 0.5f, cy - gap - len, thickness, len), inner, outline);
-        DrawCrossLine(new Rect(cx - thickness * 0.5f, cy + gap, thickness, len), inner, outline);
-        DrawCrossLine(new Rect(cx - gap - len, cy - thickness * 0.5f, len, thickness), inner, outline);
-        DrawCrossLine(new Rect(cx + gap, cy - thickness * 0.5f, len, thickness), inner, outline);
-
-        UIStyles.Fill(new Rect(cx - 2f, cy - 2f, 4f, 4f), outline);
-        UIStyles.Fill(new Rect(cx - 1f, cy - 1f, 2f, 2f), inner);
+        if (hit) DrawHitMarker(cx, cy, aiming ? 0.8f : 1f, inner);
     }
 
     private static void DrawCrossLine(Rect rect, Color inner, Color outline)
@@ -260,142 +347,308 @@ public class GameManager : MonoBehaviour
         UIStyles.Fill(rect, inner);
     }
 
+    /// <summary>Confirmacion de impacto: X táctica que no sustituye a la mira clásica.</summary>
+    private void DrawHitMarker(float cx, float cy, float factor, Color color)
+    {
+        if (hitmarkerIcon != null)
+        {
+            float size = S(44f) * factor;
+            Color previous = GUI.color;
+            GUI.color = color;
+            GUI.DrawTexture(new Rect(cx - size * 0.5f, cy - size * 0.5f, size, size),
+                hitmarkerIcon, ScaleMode.ScaleToFit, true);
+            GUI.color = previous;
+            return;
+        }
+
+        Color outline = new Color(0f, 0f, 0f, 0.85f);
+        float pixel = Mathf.Max(2f, S(3f) * factor);
+        int[] dx = { -1, 1, -1, 1 };
+        int[] dy = { -1, -1, 1, 1 };
+        for (int arm = 0; arm < 4; arm++)
+        {
+            for (int i = 0; i < 4; i++)
+            {
+                float offset = (S(11f) + i * S(4f)) * factor;
+                float x = cx + dx[arm] * offset;
+                float y = cy + dy[arm] * offset;
+                UIStyles.Fill(new Rect(x - pixel, y - pixel, pixel * 2f, pixel * 2f), outline);
+                UIStyles.Fill(new Rect(x - pixel * 0.5f, y - pixel * 0.5f, pixel, pixel), color);
+            }
+        }
+    }
+
     private void DrawBanner(float w)
     {
         float alpha = Mathf.Clamp01(_messageTimer * 2.5f);
-        float bw = Mathf.Min(540f, w * 0.82f), bh = 58f;
+        float bw = Mathf.Min(S(560f), w * 0.82f), bh = S(58f);
         float bx = (w - bw) * 0.5f, by = Screen.height * 0.15f;
         Color accent = _alertTimer > 0f ? Danger : Gold;
+        float edge = S(5f);
 
         UIStyles.Fill(new Rect(bx, by, bw, bh), new Color(0.02f, 0.04f, 0.07f, 0.88f * alpha));
-        UIStyles.Fill(new Rect(bx, by, 5f, bh), new Color(accent.r, accent.g, accent.b, alpha));
-        UIStyles.Fill(new Rect(bx + bw - 5f, by, 5f, bh), new Color(accent.r, accent.g, accent.b, alpha));
+        UIStyles.Fill(new Rect(bx, by, edge, bh), new Color(accent.r, accent.g, accent.b, alpha));
+        UIStyles.Fill(new Rect(bx + bw - edge, by, edge, bh), new Color(accent.r, accent.g, accent.b, alpha));
+        UIStyles.Fill(new Rect(bx + edge, by, S(26f), S(3f)), new Color(accent.r, accent.g, accent.b, alpha));
 
         Color previous = GUI.color;
         GUI.color = new Color(1f, 1f, 1f, alpha);
         GUI.Label(new Rect(bx, by, bw, bh), _message,
-            UIStyles.Label(28, TextAnchor.MiddleCenter, accent, true));
+            HudLabel(25, TextAnchor.MiddleCenter, accent, true));
         GUI.color = previous;
     }
 
     private void DrawStatusPanel()
     {
-        float x = 14f, y = 14f, pw = 352f, ph = 170f;
-        int lives = Mathf.Max(0, _lives);
+        float pw = S(360f), ph = S(104f), x = S(16f), y = S(16f);
+        DrawHudFrame(new Rect(x, y, pw, ph), Accent);
 
-        UIStyles.Fill(new Rect(x, y, pw, ph), Panel);
-        UIStyles.Fill(new Rect(x, y, 4f, ph), Accent);
-        UIStyles.Fill(new Rect(x, y + ph - 3f, pw, 3f), new Color(Accent.r, Accent.g, Accent.b, 0.35f));
+        GUI.Label(new Rect(x + S(14f), y + S(8f), pw - S(28f), S(18f)),
+            "OPERADOR // " + (levelDisplayName ?? "Nivel").ToUpperInvariant(),
+            HudLabel(11, TextAnchor.MiddleLeft, Muted, true));
+        GUI.Label(new Rect(x + S(14f), y + S(28f), S(190f), S(40f)),
+            _score.ToString("000000"), HudLabel(26, TextAnchor.MiddleLeft, Gold, true));
+        GUI.Label(new Rect(x + pw - S(112f), y + S(37f), S(96f), S(18f)),
+            "PUNTOS", HudLabel(10, TextAnchor.MiddleRight, Muted));
 
-        GUIStyle label = UIStyles.Label(17, TextAnchor.MiddleLeft, Color.white, true);
-        GUIStyle small = UIStyles.Label(13, TextAnchor.MiddleLeft, new Color(0.72f, 0.8f, 0.88f));
-        GUI.Label(new Rect(x + 16f, y + 12f, pw - 30f, 24f),
-            "NIVEL  //  " + levelDisplayName.ToUpperInvariant(), label);
-        GUI.Label(new Rect(x + 16f, y + 38f, pw - 30f, 24f),
-            "PUNTUACIÓN  " + _score, UIStyles.Label(16, TextAnchor.MiddleLeft, Gold, true));
-        GUI.Label(new Rect(x + 16f, y + 64f, pw - 30f, 24f),
-            "VIDA  " + lives + " / 3", UIStyles.Label(18, TextAnchor.MiddleLeft,
-                lives <= 1 ? Danger : Accent, true));
+        UIStyles.Fill(new Rect(x + S(14f), y + S(70f), pw - S(28f), S(1f)),
+            new Color(1f, 1f, 1f, 0.10f));
+        GUI.Label(new Rect(x + S(14f), y + S(76f), pw - S(28f), S(20f)),
+            "OBJETIVO  //  " + ObjectiveText(), HudLabel(13, TextAnchor.MiddleLeft, Accent, true));
+    }
+
+    private string ObjectiveText()
+    {
+        if (hasBoss) return _bossAlive ? "JEFE ACTIVO" : "JEFE ABATIDO";
+        return Mathf.Max(0, _targetsLeft + _botsLeft).ToString("00") + " RESTANTES";
+    }
+
+    private void DrawCompass(float w)
+    {
+        float cw = Mathf.Min(S(470f), Mathf.Max(S(240f), w - S(760f)));
+        float ch = S(54f), x = (w - cw) * 0.5f, y = S(16f);
+        DrawHudFrame(new Rect(x, y, cw, ch), new Color(Accent.r, Accent.g, Accent.b, 0.7f));
+
+        FirstPersonPlayer player = FirstPersonPlayer.Instance;
+        float heading = player != null ? NormalizeAngle(player.transform.eulerAngles.y) : 0f;
+        float center = x + cw * 0.5f;
+        float lineY = y + ch - S(15f);
+        float pixelsPerDegree = (cw * 0.5f - S(14f)) / 90f;
+
+        for (int delta = -90; delta <= 90; delta += 15)
+        {
+            float tickX = center + delta * pixelsPerDegree;
+            float angle = NormalizeAngle(heading + delta);
+            bool major = delta % 45 == 0;
+            float tickH = S(major ? 10f : 5f);
+            UIStyles.Fill(new Rect(tickX - S(major ? 1f : 0.5f), lineY - tickH,
+                S(major ? 2f : 1f), tickH), major ? White : Dim);
+            if (major)
+            {
+                GUI.Label(new Rect(tickX - S(18f), lineY - S(29f), S(36f), S(15f)),
+                    Cardinal(angle), HudLabel(11, TextAnchor.MiddleCenter, Muted, true));
+            }
+        }
+
+        UIStyles.Fill(new Rect(center - S(1f), lineY - S(14f), S(2f), S(14f)), Gold);
+        UIStyles.Fill(new Rect(center - S(5f), y + ch - S(4f), S(10f), S(3f)), Gold);
+        GUI.Label(new Rect(center - S(52f), y + S(4f), S(104f), S(26f)),
+            Mathf.RoundToInt(heading).ToString("000") + "°  " + Cardinal(heading),
+            HudLabel(16, TextAnchor.MiddleCenter, White, true));
+    }
+
+    private void DrawKillFeed(float w)
+    {
+        float pw = S(322f), row = S(27f), ph = S(22f) + row * 3f;
+        float x = w - pw - S(16f), y = S(16f);
+        DrawHudFrame(new Rect(x, y, pw, ph), Danger);
+
+        GUI.Label(new Rect(x + S(12f), y + S(5f), pw - S(24f), S(16f)),
+            "REGISTRO DE BAJAS", HudLabel(10, TextAnchor.MiddleLeft, Muted, true));
 
         for (int i = 0; i < 3; i++)
         {
-            Color c = i < lives ? (lives <= 1 ? Danger : Accent) : new Color(1f, 1f, 1f, 0.12f);
-            UIStyles.Fill(new Rect(x + 16f + i * 82f, y + 92f, 74f, 7f), c);
-        }
+            float ry = y + S(22f) + i * row;
+            UIStyles.Fill(new Rect(x + S(12f), ry + S(4f), S(34f), S(2f)),
+                new Color(1f, 1f, 1f, 0.09f));
+            if (i >= _killFeed.Count) continue;
 
-        string objetivo = hasBoss
-            ? (_bossAlive ? "JEFE VIVO" : "JEFE ABATIDO")
-            : (_targetsLeft + _botsLeft) + " objetivos restantes";
-        GUI.Label(new Rect(x + 16f, y + 108f, pw - 30f, 24f), "OBJETIVO  //  " + objetivo, small);
-        GUI.Label(new Rect(x + 16f, y + 138f, pw - 30f, 22f),
-            "R recargar   1/2 arma   CLIC DERECHO mira", small);
+            KillFeedEntry entry = _killFeed[i];
+            float alpha = Mathf.Clamp01(entry.time * 1.8f);
+            UIStyles.Fill(new Rect(x + S(12f), ry + S(3f), S(3f), row - S(9f)),
+                new Color(entry.color.r, entry.color.g, entry.color.b, alpha));
+
+            Color previous = GUI.color;
+            GUI.color = new Color(1f, 1f, 1f, alpha);
+            GUI.Label(new Rect(x + S(22f), ry, pw - S(34f), row - S(4f)),
+                entry.text, HudLabel(12, TextAnchor.MiddleLeft, entry.color, true));
+            GUI.color = previous;
+        }
     }
 
-    private void DrawArsenalPanel(float w, float h)
+    private void DrawHealthPanel(float h)
     {
-        float pw = 344f, ph = 176f;
-        float x = w - pw - 14f, y = h - ph - 14f;
+        int lives = Mathf.Max(0, _lives);
+        Color accent = lives <= 1 ? Danger : Accent;
+        float pw = S(330f), ph = S(124f), x = S(18f), y = h - ph - S(18f);
+        DrawHudFrame(new Rect(x, y, pw, ph), accent);
 
-        UIStyles.Fill(new Rect(x, y, pw, ph), Panel);
-        UIStyles.Fill(new Rect(x + pw - 4f, y, 4f, ph), Gold);
-        UIStyles.Fill(new Rect(x, y, pw, 3f), new Color(Gold.r, Gold.g, Gold.b, 0.35f));
+        Rect icon = new Rect(x + S(14f), y + S(38f), S(46f), S(46f));
+        if (healthIcon != null)
+            GUI.DrawTexture(icon, healthIcon, ScaleMode.ScaleToFit, true);
+        else
+            DrawPlusIcon(icon, new Color(accent.r, accent.g, accent.b, 0.9f));
 
-        GUI.Label(new Rect(x + 14f, y + 10f, pw - 28f, 24f), "ARSENAL  //  02 ARMAS",
-            UIStyles.Label(16, TextAnchor.MiddleLeft, Gold, true));
+        GUI.Label(new Rect(x + S(74f), y + S(15f), S(160f), S(18f)),
+            "ESTADO / VIDA", HudLabel(11, TextAnchor.MiddleLeft, Muted, true));
+        GUI.Label(new Rect(x + S(74f), y + S(32f), S(120f), S(46f)),
+            lives.ToString("00"), HudLabel(38, TextAnchor.MiddleLeft, accent, true));
+        GUI.Label(new Rect(x + S(154f), y + S(52f), S(56f), S(22f)),
+            "/ 03", HudLabel(14, TextAnchor.MiddleLeft, Muted));
 
+        float barX = x + S(74f), barY = y + S(86f), segW = S(72f), gap = S(6f), barH = S(9f);
+        for (int i = 0; i < 3; i++)
+        {
+            Color c = i < lives
+                ? new Color(accent.r, accent.g, accent.b, 0.95f)
+                : new Color(1f, 1f, 1f, 0.10f);
+            UIStyles.Fill(new Rect(barX + i * (segW + gap), barY, segW, barH), c);
+            UIStyles.Fill(new Rect(barX + i * (segW + gap), barY, segW, S(2f)),
+                new Color(1f, 1f, 1f, 0.18f));
+        }
+
+        GUI.Label(new Rect(x + pw - S(92f), y + S(84f), S(78f), S(18f)),
+            lives <= 1 ? "CRÍTICO" : "ESTABLE", HudLabel(10, TextAnchor.MiddleRight, accent, true));
+    }
+
+    private void DrawAmmoPanel(float w, float h)
+    {
+        float pw = S(460f), ph = S(174f), x = w - pw - S(18f), y = h - ph - S(18f);
         Weapon weapon = WeaponRef;
         if (weapon == null || weapon.slots == null || weapon.slots.Length == 0)
         {
-            GUI.Label(new Rect(x + 14f, y + 42f, pw - 28f, 24f), "SIN ARMA",
-                UIStyles.Label(15, TextAnchor.MiddleLeft, Color.white));
+            DrawHudFrame(new Rect(x, y, pw, ph), Gold);
+            GUI.Label(new Rect(x + S(16f), y + S(50f), pw - S(32f), S(30f)),
+                "SIN ARMA", HudLabel(20, TextAnchor.MiddleCenter, Danger, true));
             return;
         }
 
-        for (int i = 0; i < weapon.slots.Length; i++)
+        int mag = weapon.CurrentMagazine;
+        int size = Mathf.Max(1, weapon.CurrentMagazineSize);
+        int lowThreshold = Mathf.Max(1, Mathf.CeilToInt(size * 0.25f));
+        bool low = mag <= lowThreshold && !weapon.IsReloading;
+        Color accent = low ? Danger : Gold;
+        DrawHudFrame(new Rect(x, y, pw, ph), accent);
+
+        GUI.Label(new Rect(x + S(16f), y + S(11f), pw - S(32f), S(18f)),
+            "ARSENAL // " + (weapon.CurrentName ?? "Arma").ToUpperInvariant(),
+            HudLabel(11, TextAnchor.MiddleLeft, Muted, true));
+
+        Rect icon = new Rect(x + S(16f), y + S(46f), S(42f), S(42f));
+        if (ammoIcon != null)
+            GUI.DrawTexture(icon, ammoIcon, ScaleMode.ScaleToFit, true);
+        else
+            DrawAmmoIcon(icon, new Color(accent.r, accent.g, accent.b, 0.9f));
+
+        GUI.Label(new Rect(x + S(70f), y + S(38f), S(130f), S(56f)),
+            mag.ToString("00"), HudLabel(46, TextAnchor.MiddleLeft, low ? Danger : White, true));
+        GUI.Label(new Rect(x + S(202f), y + S(50f), S(96f), S(34f)),
+            "/ " + weapon.CurrentReserve.ToString("000"), HudLabel(20, TextAnchor.MiddleLeft, Muted, true));
+
+        float chipW = S(60f), chipH = S(44f), chipGap = S(6f);
+        float chipX = x + pw - S(16f) - chipW * 2f - chipGap;
+        for (int i = 0; i < Mathf.Min(2, weapon.slots.Length); i++)
         {
             WeaponSlot slot = weapon.slots[i];
             if (slot == null) continue;
             bool active = i == weapon.CurrentIndex;
-            float rowY = y + 38f + i * 26f;
-            if (active)
-                UIStyles.Fill(new Rect(x + 10f, rowY + 3f, 3f, 20f), Accent);
-            string line = (i + 1) + ". " + (slot.displayName ?? "Arma") +
-                          "    " + slot.magazine + "/" + slot.reserve;
-            GUI.Label(new Rect(x + 22f, rowY, pw - 36f, 24f), line,
-                UIStyles.Label(15, TextAnchor.MiddleLeft,
-                    active ? Accent : new Color(0.65f, 0.7f, 0.76f), active));
+            Rect chip = new Rect(chipX + i * (chipW + chipGap), y + S(42f), chipW, chipH);
+            Color chipAccent = active ? accent : Dim;
+            UIStyles.Fill(chip, active
+                ? new Color(accent.r, accent.g, accent.b, 0.20f)
+                : new Color(1f, 1f, 1f, 0.05f));
+            UIStyles.Fill(new Rect(chip.x, chip.y, chipW, S(2f)), chipAccent);
+            GUI.Label(new Rect(chip.x + S(5f), chip.y + S(3f), chip.width - S(10f), S(16f)),
+                "0" + (i + 1), HudLabel(10, TextAnchor.MiddleLeft, chipAccent, true));
+            GUI.Label(new Rect(chip.x + S(5f), chip.y + S(19f), chip.width - S(10f), S(20f)),
+                slot.magazine.ToString("00"), HudLabel(14, TextAnchor.MiddleLeft,
+                    active ? White : Muted, true));
         }
 
-        GUI.Label(new Rect(x + 14f, y + 94f, pw - 28f, 40f),
-            weapon.CurrentMagazine.ToString("00") + "  /  " + weapon.CurrentReserve,
-            UIStyles.Label(32, TextAnchor.MiddleLeft, Color.white, true));
-        GUI.Label(new Rect(x + 14f, y + 132f, pw - 28f, 20f),
-            "BALAS RESTANTES  " + weapon.TotalAmmo,
-            UIStyles.Label(13, TextAnchor.MiddleLeft, new Color(0.78f, 0.84f, 0.9f)));
+        GUI.Label(new Rect(x + S(16f), y + S(101f), S(210f), S(18f)),
+            "TOTAL  " + weapon.TotalAmmo + " BALAS", HudLabel(11, TextAnchor.MiddleLeft, Muted));
 
-        string state = weapon.IsReloading
-            ? "RECARGANDO..."
-            : (FirstPersonPlayer.Instance != null && FirstPersonPlayer.Instance.IsAiming
-                ? "MIRA ACTIVA" : "CARGADOR " + weapon.CurrentMagazine + "/" + weapon.CurrentMagazineSize);
-        GUI.Label(new Rect(x + 14f, y + 150f, pw - 28f, 20f), state,
-            UIStyles.Label(12, TextAnchor.MiddleLeft,
-                weapon.IsReloading ? Gold : Accent, weapon.IsReloading));
+        string state = weapon.IsReloading ? "RECARGANDO..." :
+            (FirstPersonPlayer.Instance != null && FirstPersonPlayer.Instance.IsAiming
+                ? "MIRA ACTIVA" : "CARGADOR " + mag + "/" + size);
+        GUI.Label(new Rect(x + S(16f), y + S(142f), S(240f), S(18f)),
+            state, HudLabel(11, TextAnchor.MiddleLeft, weapon.IsReloading ? Gold : Accent, true));
 
-        if (weapon.IsReloading)
-            UIStyles.Fill(new Rect(x + 14f, y + 171f, (pw - 28f) * weapon.ReloadProgress, 3f), Gold);
+        float barX = x + S(16f), barY = y + S(132f), barW = pw - S(32f);
+        UIStyles.Fill(new Rect(barX, barY, barW, S(5f)), new Color(1f, 1f, 1f, 0.10f));
+        float fill = weapon.IsReloading
+            ? weapon.ReloadProgress
+            : Mathf.Clamp01(mag / (float)size);
+        UIStyles.Fill(new Rect(barX, barY, barW * fill, S(5f)),
+            weapon.IsReloading ? Gold : accent);
+
+        if (low && Mathf.Repeat(Time.unscaledTime, 1f) < 0.62f)
+        {
+            GUI.Label(new Rect(x + pw - S(180f), y + S(140f), S(166f), S(20f)),
+                "MUNICIÓN BAJA", HudLabel(11, TextAnchor.MiddleRight, Danger, true));
+        }
+    }
+
+    private static void DrawPlusIcon(Rect r, Color color)
+    {
+        UIStyles.Fill(r, new Color(1f, 1f, 1f, 0.06f));
+        UIStyles.Fill(new Rect(r.x + r.width * 0.38f, r.y + r.height * 0.12f,
+            r.width * 0.24f, r.height * 0.76f), color);
+        UIStyles.Fill(new Rect(r.x + r.width * 0.12f, r.y + r.height * 0.38f,
+            r.width * 0.76f, r.height * 0.24f), color);
+    }
+
+    private static void DrawAmmoIcon(Rect r, Color color)
+    {
+        UIStyles.Fill(r, new Color(1f, 1f, 1f, 0.05f));
+        UIStyles.Fill(new Rect(r.x + r.width * 0.34f, r.y + r.height * 0.20f,
+            r.width * 0.32f, r.height * 0.64f), color);
+        UIStyles.Fill(new Rect(r.x + r.width * 0.26f, r.y + r.height * 0.08f,
+            r.width * 0.48f, r.height * 0.16f), color);
     }
 
     private void DrawEndPanel(float w, float h)
     {
         UIStyles.Fill(new Rect(0, 0, w, h), new Color(0.01f, 0.02f, 0.04f, 0.86f));
-        float pw = Mathf.Min(540f, w * 0.86f), ph = 390f;
+        float pw = Mathf.Min(S(540f), w * 0.86f), ph = S(390f);
         float px = (w - pw) * 0.5f, py = (h - ph) * 0.5f;
         Color result = _won ? Accent : Danger;
+        float edge = S(5f);
 
         UIStyles.Fill(new Rect(px, py, pw, ph), new Color(0.03f, 0.05f, 0.08f, 0.96f));
-        UIStyles.Fill(new Rect(px, py, pw, 5f), result);
-        UIStyles.Fill(new Rect(px, py + ph - 5f, pw, 5f), result);
+        UIStyles.Fill(new Rect(px, py, pw, edge), result);
+        UIStyles.Fill(new Rect(px, py + ph - edge, pw, edge), result);
 
-        GUI.Label(new Rect(px, py + 26f, pw, 58f), _won ? "VICTORIA" : "DERROTA",
-            UIStyles.Label(46, TextAnchor.MiddleCenter, result, true));
-        GUI.Label(new Rect(px, py + 100f, pw, 34f), "PUNTUACIÓN FINAL  " + _score,
-            UIStyles.Label(25, TextAnchor.MiddleCenter, Color.white, true));
-        GUI.Label(new Rect(px, py + 138f, pw, 30f), "VIDAS RESTANTES  " + Mathf.Max(0, _lives),
-            UIStyles.Label(19, TextAnchor.MiddleCenter, Color.white));
-        GUI.Label(new Rect(px, py + 172f, pw, 30f), _message,
-            UIStyles.Label(18, TextAnchor.MiddleCenter, Gold));
+        GUI.Label(new Rect(px, py + S(26f), pw, S(58f)), _won ? "VICTORIA" : "DERROTA",
+            HudLabel(46, TextAnchor.MiddleCenter, result, true));
+        GUI.Label(new Rect(px, py + S(100f), pw, S(34f)), "PUNTUACIÓN FINAL  " + _score,
+            HudLabel(25, TextAnchor.MiddleCenter, White, true));
+        GUI.Label(new Rect(px, py + S(138f), pw, S(30f)), "VIDAS RESTANTES  " + Mathf.Max(0, _lives),
+            HudLabel(19, TextAnchor.MiddleCenter, White));
+        GUI.Label(new Rect(px, py + S(172f), pw, S(30f)), _message,
+            HudLabel(18, TextAnchor.MiddleCenter, Gold));
 
-        GUIStyle button = UIStyles.Button(20);
-        float bw = pw - 80f, bx = px + 40f;
+        GUIStyle button = UIStyles.Button(20, hudFont);
+        float bw = pw - S(80f), bx = px + S(40f), bh = S(44f);
         if (_won && !string.IsNullOrEmpty(nextSceneName))
         {
-            if (GUI.Button(new Rect(bx, py + 216f, bw, 44f), "SIGUIENTE NIVEL", button)) NextLevel();
-            if (GUI.Button(new Rect(bx, py + 268f, bw, 44f), "VOLVER A JUGAR", button)) RestartRun();
+            if (GUI.Button(new Rect(bx, py + S(216f), bw, bh), "SIGUIENTE NIVEL", button)) NextLevel();
+            if (GUI.Button(new Rect(bx, py + S(268f), bw, bh), "VOLVER A JUGAR", button)) RestartRun();
         }
         else
         {
-            if (GUI.Button(new Rect(bx, py + 216f, bw, 44f), "VOLVER A JUGAR", button)) RestartRun();
+            if (GUI.Button(new Rect(bx, py + S(216f), bw, bh), "VOLVER A JUGAR", button)) RestartRun();
         }
-        if (GUI.Button(new Rect(bx, py + 320f, bw, 44f), "MENÚ PRINCIPAL", button)) GoToMenu();
+        if (GUI.Button(new Rect(bx, py + S(320f), bw, bh), "MENÚ PRINCIPAL", button)) GoToMenu();
     }
 }

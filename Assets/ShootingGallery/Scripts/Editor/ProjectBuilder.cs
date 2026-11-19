@@ -25,6 +25,8 @@ public static class ProjectBuilder
         _bulletPrefab, _enemyBulletPrefab, _managerPrefab, _muzzleFlashPrefab;
     private static AudioClip _gun, _hit, _hurt, _win, _lose, _reload;
     private static Texture2D _arTexture, _m9Texture;
+    private static Font _hudFont;
+    private static Texture2D _healthIcon, _ammoIcon, _hitmarkerIcon;
     private static GameObject _soldierAsset;
     private static Avatar _soldierAvatar;
     private static RuntimeAnimatorController _soldierController;
@@ -60,11 +62,20 @@ public static class ProjectBuilder
     // ------------------------------------------------------------ carpetas ---
     private static void EnsureFolders()
     {
-        string[] folders = { "Art", "Audio", "Materials", "Prefabs", "Scenes", "Levels", "Animations" };
+        string[] folders =
+        {
+            "Art", "Art/UI", "Audio", "Materials", "Prefabs", "Scenes", "Levels", "Animations", "Fonts"
+        };
         foreach (string folder in folders)
         {
-            string path = Root + "/" + folder;
-            if (!AssetDatabase.IsValidFolder(path)) AssetDatabase.CreateFolder(Root, folder);
+            string[] parts = folder.Split('/');
+            string parent = Root;
+            foreach (string part in parts)
+            {
+                string path = parent + "/" + part;
+                if (!AssetDatabase.IsValidFolder(path)) AssetDatabase.CreateFolder(parent, part);
+                parent = path;
+            }
         }
     }
 
@@ -88,6 +99,12 @@ public static class ProjectBuilder
         _arTexture = ConfigureTexture("Assets/Low Poly AR Weapon Pack 3/Texture/Low Poly Weapon.png");
         _m9Texture = ConfigureTexture("Assets/Objects/Handgun/Tex_0009_1.jpg");
 
+        // Assets de HUD opcionales: basta con dejarlos en estas carpetas y regenerar.
+        _hudFont = LoadFirstAsset<Font>(Root + "/Fonts");
+        _healthIcon = LoadUiTexture("health", "vida", "salud");
+        _ammoIcon = LoadUiTexture("ammo", "municion", "bullet");
+        _hitmarkerIcon = LoadUiTexture("hitmarker", "impacto", "hit");
+
         _soldierAsset = AssetDatabase.LoadAssetAtPath<GameObject>(SoldierPrefab);
         Object[] modelAssets = AssetDatabase.LoadAllAssetsAtPath(SoldierModel);
         foreach (Object asset in modelAssets)
@@ -96,7 +113,34 @@ public static class ProjectBuilder
         }
         Debug.Log($"[ShootingGallery] Soldado personal={( _soldierAsset != null)} " +
                   $"avatar={(_soldierAvatar != null)} sonido={(_gun != null)} recarga={(_reload != null)} " +
-                  $"texturas={( _arTexture != null && _m9Texture != null)}");
+                  $"texturas={( _arTexture != null && _m9Texture != null)} " +
+                  $"hud={( _hudFont != null ? "fuente" : "por defecto")}/" +
+                  $"{((_healthIcon != null ? 1 : 0) + (_ammoIcon != null ? 1 : 0) + (_hitmarkerIcon != null ? 1 : 0))}iconos");
+    }
+
+    /// <summary>Devuelve el primer asset de un tipo dentro de una carpeta.</summary>
+    private static T LoadFirstAsset<T>(string folder) where T : UnityEngine.Object
+    {
+        string[] guids = AssetDatabase.FindAssets("t:" + typeof(T).Name, new[] { folder });
+        if (guids.Length == 0) return null;
+        return AssetDatabase.LoadAssetAtPath<T>(AssetDatabase.GUIDToAssetPath(guids[0]));
+    }
+
+    /// <summary>Busca un icono de UI por palabra clave en su nombre de archivo.</summary>
+    private static Texture2D LoadUiTexture(params string[] keywords)
+    {
+        string[] guids = AssetDatabase.FindAssets("t:Texture2D", new[] { Root + "/Art/UI" });
+        foreach (string guid in guids)
+        {
+            string path = AssetDatabase.GUIDToAssetPath(guid);
+            string name = Path.GetFileNameWithoutExtension(path);
+            foreach (string keyword in keywords)
+            {
+                if (name.IndexOf(keyword, System.StringComparison.OrdinalIgnoreCase) >= 0)
+                    return AssetDatabase.LoadAssetAtPath<Texture2D>(path);
+            }
+        }
+        return null;
     }
 
     /// <summary>Fuerza DecompressOnLoad + precarga para que los efectos suenen siempre.</summary>
@@ -435,6 +479,10 @@ public static class ProjectBuilder
         gm.winClip = _win;
         gm.loseClip = _lose;
         gm.sfxSource = managerSfx;
+        gm.hudFont = _hudFont;
+        gm.healthIcon = _healthIcon;
+        gm.ammoIcon = _ammoIcon;
+        gm.hitmarkerIcon = _hitmarkerIcon;
         _managerPrefab = SavePrefab(manager, "GameManager");
     }
 
@@ -790,7 +838,8 @@ public static class ProjectBuilder
         camGo.AddComponent<Camera>();
         camGo.AddComponent<AudioListener>();
         camGo.transform.position = new Vector3(0f, 2f, -6f);
-        new GameObject("MenuController").AddComponent<MenuController>();
+        MenuController menu = new GameObject("MenuController").AddComponent<MenuController>();
+        menu.uiFont = _hudFont;
         SaveCurrentScene("00 Menu Principal");
     }
 
@@ -935,6 +984,8 @@ public static class ProjectBuilder
             {
                 Debug.Log($"[VALIDATE]   nivel: cargador={gm.startingAmmo} reserva={gm.startingReserve} " +
                           $"dianas={gm.totalTargets} bots={gm.totalBots} boss={gm.hasBoss} " +
+                          $"hudFuente={(gm.hudFont != null)} iconos=" +
+                          $"{((gm.healthIcon != null ? 1 : 0) + (gm.ammoIcon != null ? 1 : 0) + (gm.hitmarkerIcon != null ? 1 : 0))} " +
                           $"siguiente='{gm.nextSceneName}'");
             }
         }
