@@ -35,14 +35,18 @@ public class BotAI : MonoBehaviour
 
     private Transform _player;
     private Animator _animator;
+    private CharacterController _controller;
     private float _hitTimer;
     private float _fireTimer;
+    private float _avoidTimer;
+    private float _avoidSign = 1f;
     private bool _detected;
 
     protected virtual void Start()
     {
         _player = FirstPersonPlayer.Instance != null ? FirstPersonPlayer.Instance.transform : null;
         _animator = GetComponentInChildren<Animator>();
+        _controller = GetComponent<CharacterController>();
         _detected = !requiresExitDetection;
         _fireTimer = Random.Range(0.4f, Mathf.Max(0.5f, fireInterval));
 
@@ -70,13 +74,36 @@ public class BotAI : MonoBehaviour
 
         if (moving)
         {
-            Vector3 next = transform.position + toPlayer.normalized * speed * Time.deltaTime;
+            Vector3 direction = toPlayer.normalized;
+            _avoidTimer -= Time.deltaTime;
+            if (_avoidTimer > 0f)
+                direction = Quaternion.Euler(0f, 55f * _avoidSign, 0f) * direction;
+
+            Vector3 delta = direction * speed * Time.deltaTime;
+            Vector3 next = transform.position + delta;
             if (useBounds)
             {
                 next.x = Mathf.Clamp(next.x, minXZ.x, maxXZ.x);
                 next.z = Mathf.Clamp(next.z, minXZ.y, maxXZ.y);
+                delta = next - transform.position;
             }
-            transform.position = next;
+
+            if (_controller != null)
+            {
+                // Move() respeta los colliders: los bots ya no atraviesan
+                // cajas, muros ni coberturas. El pequeño empuje hacia abajo
+                // los mantiene pegados al suelo.
+                _controller.Move(delta + Vector3.down * 0.5f * Time.deltaTime);
+                if ((_controller.collisionFlags & CollisionFlags.Sides) != 0 && _avoidTimer <= 0f)
+                {
+                    _avoidTimer = 0.7f;
+                    _avoidSign = -_avoidSign;
+                }
+            }
+            else
+            {
+                transform.position = next;
+            }
         }
         else if (_hitTimer <= 0f)
         {

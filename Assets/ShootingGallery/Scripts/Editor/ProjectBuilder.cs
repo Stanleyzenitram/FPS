@@ -30,7 +30,7 @@ public static class ProjectBuilder
 
     private static Material _floor, _wall, _cover, _outdoor, _exit, _targetMat, _bulletMat,
         _enemyBulletMat, _weaponMat, _flashMat, _trailMat, _weaponArMat, _weaponM9Mat,
-        _sleeveMat, _gloveMat, _armsMat, _sectionA, _sectionB, _sectionC;
+        _sleeveMat, _gloveMat, _armsMat, _sectionA, _sectionB, _sectionC, _towerBrickMat;
     private static GameObject _playerPrefab, _targetPrefab, _botPrefab, _bossPrefab,
         _bulletPrefab, _enemyBulletPrefab, _managerPrefab, _muzzleFlashPrefab;
     private static AudioClip _gun, _hit, _hurt, _win, _lose, _reload;
@@ -41,6 +41,9 @@ public static class ProjectBuilder
     private static GameObject _soldierAsset, _armsAsset, _bulletModel, _enemyBulletModel;
     private static GameObject _pavement, _solidWall, _fullWall, _decoColumn, _doorFrame,
         _tower, _crate, _barrel, _stone, _bench, _torch;
+    // Los prefabs de Sun_Temple no tienen el pivote en el centro de su malla:
+    // guardamos el desplazamiento para alinear los modulos por bounds, no por pivot.
+    private static Vector3 _pavementOffset, _solidWallOffset, _fullWallOffset;
     private static Avatar _soldierAvatar;
     private static RuntimeAnimatorController _soldierController;
 
@@ -136,6 +139,12 @@ public static class ProjectBuilder
         _stone = TempleAsset("Natural/Prop_Stone_Med_A.prefab");
         _bench = TempleAsset("Props/Prop_StoneBench_A.prefab");
         _torch = TempleAsset("Props/Prop_FireTorch_A.prefab");
+
+        _pavementOffset = PrefabBoundsCenter(_pavement);
+        _solidWallOffset = PrefabBoundsCenter(_solidWall);
+        _fullWallOffset = PrefabBoundsCenter(_fullWall);
+        _towerBrickMat = AssetDatabase.LoadAssetAtPath<Material>(
+            "Assets/Sun_Temple/Content/Meshes/Main/Materials/Bricks_Plain.mat");
 
         // Assets de HUD opcionales: basta con dejarlos en estas carpetas y regenerar.
         _hudFont = LoadFirstAsset<Font>(Root + "/Fonts");
@@ -378,15 +387,8 @@ public static class ProjectBuilder
             fixedCount++;
         }
 
-        // HLP_Red es un material de ayuda del asset: no tiene textura, le damos color.
-        Material red = AssetDatabase.LoadAssetAtPath<Material>(matFolder + "HLP_Red.mat");
-        if (red != null)
-        {
-            Color marker = new Color(0.62f, 0.12f, 0.10f, 1f);
-            if (red.HasProperty("_BaseColor")) red.SetColor("_BaseColor", marker);
-            if (red.HasProperty("_Color")) red.SetColor("_Color", marker);
-            EditorUtility.SetDirty(red);
-        }
+        // HLP_Red no se toca: las torres lo sustituyen por Bricks_Plain al
+        // instanciarse en PlaceTemple, sin modificar el asset Sun_Temple.
 
         AssetDatabase.SaveAssets();
         Debug.Log($"[ShootingGallery] Materiales Sun_Temple con textura: {fixedCount}/{pairs.Length}");
@@ -530,6 +532,21 @@ public static class ProjectBuilder
         Bounds bounds = renderers[0].bounds;
         for (int i = 1; i < renderers.Length; i++) bounds.Encapsulate(renderers[i].bounds);
         return bounds;
+    }
+
+    /// <summary>Centro de la malla de un prefab con pivot/rotacion/escala neutros.</summary>
+    private static Vector3 PrefabBoundsCenter(GameObject prefab)
+    {
+        if (prefab == null) return Vector3.zero;
+        GameObject go = PrefabUtility.InstantiatePrefab(prefab) as GameObject;
+        if (go == null) return Vector3.zero;
+        go.transform.position = Vector3.zero;
+        go.transform.rotation = Quaternion.identity;
+        go.transform.localScale = Vector3.one;
+        Vector3 center = BoundsOf(go).center;
+        Object.DestroyImmediate(go);
+        center.y = 0f; // la altura la decide el scale de cada muro, no el pivot.
+        return center;
     }
 
     // ------------------------------------------------------------- prefabs ---
@@ -752,10 +769,15 @@ public static class ProjectBuilder
             body.transform.localScale = new Vector3(height * 0.35f, height * 0.5f, height * 0.35f);
         }
 
-        CapsuleCollider collider = root.AddComponent<CapsuleCollider>();
-        collider.center = new Vector3(0f, height * 0.5f, 0f);
-        collider.height = height;
-        collider.radius = Mathf.Max(0.25f, height * 0.22f);
+        // CharacterController en lugar de CapsuleCollider: los bots se mueven
+        // con Move() y asi respetan muros y coberturas en vez de atravesarlos.
+        CharacterController controller = root.AddComponent<CharacterController>();
+        controller.center = new Vector3(0f, height * 0.5f, 0f);
+        controller.height = height;
+        controller.radius = Mathf.Max(0.25f, height * 0.22f);
+        controller.stepOffset = 0.35f;
+        controller.slopeLimit = 60f;
+        controller.skinWidth = 0.04f;
 
         Target target = root.AddComponent<Target>();
         target.type = type;
@@ -1092,6 +1114,25 @@ public static class ProjectBuilder
         if (scale.HasValue) go.transform.localScale = scale.Value;
         foreach (Collider collider in go.GetComponentsInChildren<Collider>(true))
             Object.DestroyImmediate(collider);
+
+        // Las torres usan HLP_Red, un material de ayuda sin textura que se
+        // veia rojo liso. Lo cambiamos solo en la instancia para no tocar
+        // el asset original de Sun_Temple.
+        if (prefab == _tower && _towerBrickMat != null)
+        {
+            foreach (Renderer renderer in go.GetComponentsInChildren<Renderer>(true))
+            {
+                Material[] mats = renderer.sharedMaterials;
+                bool changed = false;
+                for (int i = 0; i < mats.Length; i++)
+                {
+                    if (mats[i] == null || !mats[i].name.Contains("HLP_Red")) continue;
+                    mats[i] = _towerBrickMat;
+                    changed = true;
+                }
+                if (changed) renderer.sharedMaterials = mats;
+            }
+        }
         return go;
     }
 
@@ -1109,9 +1150,9 @@ public static class ProjectBuilder
         // La apertura de colision es de 6 m pero el marco solo ocupa 3,2 m:
         // rellenamos los dos laterales para que no quede pared vacia.
         Vector3 fillerScale = new Vector3(0.14f, 0.5f, 0.5f);
-        PlaceTemple(_solidWall, "Relleno_Marco_Sur",
+        PlaceWall("Relleno_Marco_Sur", _solidWall,
             new Vector3(x, 0f, -3.3f), 90f, fillerScale);
-        PlaceTemple(_solidWall, "Relleno_Marco_Norte",
+        PlaceWall("Relleno_Marco_Norte", _solidWall,
             new Vector3(x, 0f, 1.3f), 90f, fillerScale);
         MakeCollider("Col_Relleno_Marco_Sur",
             new Vector3(x, 3f, -3.3f), new Vector3(1f, 6f, 1.4f));
@@ -1137,20 +1178,36 @@ public static class ProjectBuilder
         if (_pavement == null) return;
         int columns = Mathf.Max(1, Mathf.RoundToInt((maxX - minX) / 10f));
         int rows = Mathf.Max(1, Mathf.RoundToInt((maxZ - minZ) / 10f));
+        // La loseta mide 10,13 m: 0,985 evita solapes y parpadeo (z-fighting).
+        Vector3 scale = new Vector3(0.985f, 1f, 1f);
+        Vector3 worldOffset = Vector3.Scale(_pavementOffset, scale);
+        worldOffset.y = 0f;
         for (int x = 0; x < columns; x++)
         {
             for (int z = 0; z < rows; z++)
             {
                 Vector3 pos = new Vector3(minX + 5f + x * 10f, -0.01f, minZ + 5f + z * 10f);
-                PlaceTemple(_pavement, $"{prefix}_{x}_{z}", pos);
+                GameObject tile = PlaceTemple(_pavement, $"{prefix}_{x}_{z}", pos, 0f, scale);
+                if (tile != null) tile.transform.position -= worldOffset;
             }
         }
     }
 
-    /// <summary>Muro decorativo del templo; las colisiones las ponen los MakeCollider.</summary>
+    /// <summary>
+    /// Muro decorativo del templo alineado por bounds: Sun_Temple no centra la
+    /// malla en el pivot (el muro solido tiene +5,10 m en X), asi que colocar
+    /// por transform.position dejaba huecos de 4-5 m entre modulos.
+    /// Las colisiones siguen siendo cajas invisibles creadas por MakeCollider.
+    /// </summary>
     private static void PlaceWall(string name, GameObject prefab, Vector3 pos, float yaw, Vector3 scale)
     {
-        PlaceTemple(prefab, name, pos, yaw, scale);
+        GameObject go = PlaceTemple(prefab, name, pos, yaw, scale);
+        if (go == null) return;
+
+        Vector3 localOffset = prefab == _fullWall ? _fullWallOffset : _solidWallOffset;
+        Vector3 worldOffset = Quaternion.Euler(0f, yaw, 0f) * Vector3.Scale(localOffset, scale);
+        worldOffset.y = 0f;
+        go.transform.position -= worldOffset;
     }
 
     /// <summary>Cobertura importada con su colision invisible del tamano de juego.</summary>
@@ -1611,7 +1668,8 @@ public static class ProjectBuilder
                 }
             }
 
-            int withSoldier = 0, withAnimator = 0, bounded = 0, detecting = 0, ranged = 0, withAudio = 0;
+            int withSoldier = 0, withAnimator = 0, bounded = 0, detecting = 0, ranged = 0,
+                withAudio = 0, withController = 0;
             foreach (BotAI bot in bots)
             {
                 if (bot.transform.Find("Soldier_Model") != null) withSoldier++;
@@ -1620,6 +1678,7 @@ public static class ProjectBuilder
                 if (bot.requiresExitDetection) detecting++;
                 if (bot.enemyBulletPrefab != null && bot.muzzle != null) ranged++;
                 if (bot.fireClip != null && bot.sfxSource != null) withAudio++;
+                if (bot.GetComponent<CharacterController>() != null) withController++;
             }
 
             int bossModules = 0;
@@ -1637,7 +1696,7 @@ public static class ProjectBuilder
                       $"players={players.Length} weapons={weapons.Length} brazos={arms.Length} menus={menus.Length} " +
                       $"bots={bots.Length} soldados={withSoldier} anim={withAnimator} " +
                       $"acotados={bounded} detectanSalida={detecting} armados={ranged} " +
-                      $"audioDisparo={withAudio} modulosBoss={bossModules} " +
+                      $"audioDisparo={withAudio} conColision={withController} modulosBoss={bossModules} " +
                       $"puertaCol={doorColliders} dianasVisibles={dianasVisibles} " +
                       $"templeTexturas={templeTextured}/{templeMaterials}");
             foreach (Weapon w in weapons)

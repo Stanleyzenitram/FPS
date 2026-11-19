@@ -194,15 +194,27 @@ Tools/generate_placeholders.py regenera texturas y efectos de sonido.
   puede cambiar el aspecto del mapa sin alterar las rutas de los bots.
 - El asset Sun_Temple se importo con URP Simple Lit pero sin mapa de color
   (_BaseMap vacio), por eso se veia todo blanco. ProjectBuilder.FixTempleMaterials
-  reasigna las 11 texturas de albedo originales en cada BuildAll.
+  reasigna las 11 texturas de albedo originales en cada BuildAll. El
+  material HLP_Red de las torres se sustituye por Bricks_Plain al instanciar
+  cada torre (sin modificar el asset Sun_Temple), asi que ya no aparecen
+  torres rojas lisas. Validacion: 689/689, 502/502 y 650/650.
 - El muro decorativo del exterior no tapa la salida: solo se coloca en los
   tramos que ya tenian colision y el hueco x=15, z=-4..2 queda libre.
   Los modulos de la pared derecha y del cierre norte se alinean con esos
   limites y el marco se rodea con dos piezas de relleno (mas sus colisiones
   invisibles), de modo que no queda ningun vano sin muro.
+- Los prefabs de muro de Sun_Temple tienen el pivot desplazado: el solido
+  trae +5,10 m en X y el completo -5,00 m. PlaceWall mide los bounds del
+  prefab y corrige la posicion despues de girar/escalar, asi los paneles
+  se unen sin huecos (antes quedaban 4-5 m de pared vacia) y las puertas
+  no quedaban enterradas dentro de un panel.
+- Las losetas de pavimento se escalan a 0,985 en X y se centran por bounds
+  para que no se solapen 0,13 m ni parpadeen por z-fighting.
 - Cada objetivo tiene Target (tipo, puntos y vida). Bala y objetivo se
   destruyen a la vez en Target.TakeHit.
-- Los bots persiguen en linea recta (sin NavMesh). En el nivel 1 se
+- Los bots llevan CharacterController y se mueven con Move(): respetan
+  muros y coberturas invisibles y ya no las atraviesan. Si chocan de lado,
+  giran 55 grados durante 0,7 s para rodear el obstaculo. En el nivel 1 se
   limita su zona a x>=15,5 para que no entren en la sala de tiro y
   permanecen inactivos hasta que el jugador cruza esa misma x.
 - Todos los soldados (y el jefe con mas alcance) disparan proyectiles
