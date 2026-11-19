@@ -55,8 +55,9 @@ segmentos de vida, objetivo restante y atajos (incluye clic derecho).
 Abajo-derecha: ARSENAL con borde dorado, las dos armas, munición
 cargador/reserva en grande, "BALAS RESTANTES", estado del cargador,
 "MIRA ACTIVA" al apuntar y barra de progreso al recargar.
-Centro: punto de mira cian que se ajusta al apuntar y se pone rojo al
-acertar, "+puntos" flotante y banner de aviso cuando te detectan.
+Centro: punto de mira clásico blanco con contorno negro y punto central;
+se pone rojo al acertar y se reduce a un punto al usar la mira ADS.
+También aparecen "+puntos" flotantes y el banner de aviso.
 El fondo se tiñe de rojo brevemente al recibir daño.
 
 4. ARMAS, SONIDO, FOGONAZO Y RECOIL

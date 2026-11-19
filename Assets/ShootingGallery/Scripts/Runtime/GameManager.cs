@@ -230,17 +230,34 @@ public class GameManager : MonoBehaviour
     private static void DrawCrosshair(float w, float h)
     {
         bool aiming = FirstPersonPlayer.Instance != null && FirstPersonPlayer.Instance.IsAiming;
-        float cx = w * 0.5f, cy = h * 0.5f;
-        float gap = aiming ? 4f : 9f;
-        float len = aiming ? 5f : 7f;
-        float grow = GameManager.Instance != null && GameManager.Instance._hitMarker > 0f ? 3f : 0f;
-        Color color = grow > 0f ? Danger : aiming ? Accent : new Color(1f, 1f, 1f, 0.9f);
+        bool hit = GameManager.Instance != null && GameManager.Instance._hitMarker > 0f;
+        float cx = Mathf.Round(w * 0.5f), cy = Mathf.Round(h * 0.5f);
 
-        UIStyles.Fill(new Rect(cx - 1f, cy - gap - len - grow, 2f, len), color);
-        UIStyles.Fill(new Rect(cx - 1f, cy + gap + grow, 2f, len), color);
-        UIStyles.Fill(new Rect(cx - gap - len - grow, cy - 1f, len, 2f), color);
-        UIStyles.Fill(new Rect(cx + gap + grow, cy - 1f, len, 2f), color);
-        if (aiming) UIStyles.Fill(new Rect(cx - 1f, cy - 1f, 2f, 2f), color);
+        Color outline = new Color(0f, 0f, 0f, 0.75f);
+        Color inner = hit ? new Color(1f, 0.35f, 0.3f, 1f) : new Color(1f, 1f, 1f, 0.95f);
+
+        // Al apuntar con la mira del arma, la cruz se reduce a un punto central.
+        if (aiming)
+        {
+            UIStyles.Fill(new Rect(cx - 2f, cy - 2f, 4f, 4f), outline);
+            UIStyles.Fill(new Rect(cx - 1f, cy - 1f, 2f, 2f), inner);
+            return;
+        }
+
+        const float gap = 6f, len = 6f, thickness = 2f;
+        DrawCrossLine(new Rect(cx - thickness * 0.5f, cy - gap - len, thickness, len), inner, outline);
+        DrawCrossLine(new Rect(cx - thickness * 0.5f, cy + gap, thickness, len), inner, outline);
+        DrawCrossLine(new Rect(cx - gap - len, cy - thickness * 0.5f, len, thickness), inner, outline);
+        DrawCrossLine(new Rect(cx + gap, cy - thickness * 0.5f, len, thickness), inner, outline);
+
+        UIStyles.Fill(new Rect(cx - 2f, cy - 2f, 4f, 4f), outline);
+        UIStyles.Fill(new Rect(cx - 1f, cy - 1f, 2f, 2f), inner);
+    }
+
+    private static void DrawCrossLine(Rect rect, Color inner, Color outline)
+    {
+        UIStyles.Fill(new Rect(rect.x - 1f, rect.y - 1f, rect.width + 2f, rect.height + 2f), outline);
+        UIStyles.Fill(rect, inner);
     }
 
     private void DrawBanner(float w)
