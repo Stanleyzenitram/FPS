@@ -104,6 +104,15 @@ a generar el proyecto.
 - ADS: mantener clic derecho baja el FOV de 76 a 54, centra el arma,
   reduce la sensibilidad y la velocidad, y añade un balanceo de camara
   muy sutil al caminar.
+- Personaje en primera persona: se ven los dos brazos (manga con la textura
+  del soldado y guantes oscuros). La mano derecha agarra el pistolete y la
+  izquierda el guardamanos; al cambiar a la M9 el brazo izquierdo baja y se
+  abre. Los brazos no tienen collider ni proyectan sombra, asi que no
+  bloquean los disparos.
+- Recarga animada: al pulsar R (o al querer disparar con el cargador vacio)
+  el arma baja y gira, la mano izquierda va al cargador, aparece un
+  cargador que cae y vuelve a entrar, y todo vuelve a la pose al terminar.
+  La bala se sigue contabilizando al final de la animacion, como antes.
 
 5. COMO ABRIRLO
 ------------------------------------------------------------------------
@@ -116,14 +125,15 @@ Build Windows: "Shooting Gallery > Build Windows" -> Builds/Windows/FPS.exe
 6. ESTRUCTURA
 ------------------------------------------------------------------------
 Assets/ShootingGallery/
-  Scripts/Runtime/ ... jugador, arma/arsenal, bala, diana, bots, jefe,
-                       manager/HUD y menus
+  Scripts/Runtime/ ... jugador, brazos en primera persona, arma/arsenal,
+                       bala, diana, bots, jefe, manager/HUD y menus
   Scripts/Editor/ ... ProjectBuilder: materiales, animaciones, prefabs,
                        escenas, Build Settings, validacion y build
   Prefabs/ ......... Player_FPS, Target_Diana, Bot_Soldier, Boss_Soldier,
                       Bullet_Player, Bullet_Enemy, MuzzleFlash, GameManager
   Animations/ ...... Soldier.controller (Idle / Run / Shoot)
-  Materials/ ....... materiales URP, incluido el fogonazo transparente
+  Materials/ ....... materiales URP, fogonazo transparente, manga camuflada
+                       y guantes del jugador
   Art/ ............. diana, X de respaldo y muzzle_flash.png
   Art/UI/ .......... iconos opcionales de vida, munición y hitmarker
   Fonts/ ........... fuente TTF/OTF opcional para HUD y menú

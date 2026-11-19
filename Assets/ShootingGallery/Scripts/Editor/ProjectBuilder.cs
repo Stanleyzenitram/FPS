@@ -20,11 +20,12 @@ public static class ProjectBuilder
     private const string SoldierAnims = "Assets/LowPolySoldiers_demo/animation/";
 
     private static Material _floor, _wall, _cover, _outdoor, _exit, _targetMat, _bulletMat,
-        _enemyBulletMat, _weaponMat, _flashMat, _trailMat, _weaponArMat, _weaponM9Mat;
+        _enemyBulletMat, _weaponMat, _flashMat, _trailMat, _weaponArMat, _weaponM9Mat,
+        _sleeveMat, _gloveMat;
     private static GameObject _playerPrefab, _targetPrefab, _botPrefab, _bossPrefab,
         _bulletPrefab, _enemyBulletPrefab, _managerPrefab, _muzzleFlashPrefab;
     private static AudioClip _gun, _hit, _hurt, _win, _lose, _reload;
-    private static Texture2D _arTexture, _m9Texture;
+    private static Texture2D _arTexture, _m9Texture, _soldierTexture;
     private static Font _hudFont;
     private static Texture2D _healthIcon, _ammoIcon, _hitmarkerIcon;
     private static GameObject _soldierAsset;
@@ -98,6 +99,8 @@ public static class ProjectBuilder
 
         _arTexture = ConfigureTexture("Assets/Low Poly AR Weapon Pack 3/Texture/Low Poly Weapon.png");
         _m9Texture = ConfigureTexture("Assets/Objects/Handgun/Tex_0009_1.jpg");
+        _soldierTexture = ConfigureTexture(
+            "Assets/LowPolySoldiers_demo/models/Materials/demo_soldier_512.tga");
 
         // Assets de HUD opcionales: basta con dejarlos en estas carpetas y regenerar.
         _hudFont = LoadFirstAsset<Font>(Root + "/Fonts");
@@ -244,6 +247,8 @@ public static class ProjectBuilder
         _weaponMat = MakeMaterial("WeaponFallback", new Color(0.18f, 0.19f, 0.21f));
         _weaponArMat = MakeWeaponMaterial("Weapon_AR_Textured", _arTexture);
         _weaponM9Mat = MakeWeaponMaterial("Weapon_M9_Textured", _m9Texture);
+        _sleeveMat = MakeTexturedMaterial("Arms_Sleeve", Color.white, _soldierTexture);
+        _gloveMat = MakeMaterial("Arms_Glove", new Color(0.07f, 0.08f, 0.07f));
         _flashMat = MakeFlashMaterial();
         _trailMat = MakeTrailMaterial();
     }
@@ -572,6 +577,20 @@ public static class ProjectBuilder
         return weapon;
     }
 
+    /// <summary>Parte de brazo sin collider ni sombras para que nunca estorbe al disparo.</summary>
+    private static GameObject CreateArmPart(string name, PrimitiveType type, Material mat, Transform parent)
+    {
+        GameObject go = GameObject.CreatePrimitive(type);
+        go.name = name;
+        go.transform.SetParent(parent, false);
+        SetMaterial(go, mat);
+        Object.DestroyImmediate(go.GetComponent<Collider>());
+        Renderer r = go.GetComponent<Renderer>();
+        r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+        r.receiveShadows = false;
+        return go;
+    }
+
     private static void CreatePlayerPrefab()
     {
         GameObject root = new GameObject("Player_FPS");
@@ -641,6 +660,23 @@ public static class ProjectBuilder
         muzzlePistol.transform.SetParent(pivot.transform, false);
         muzzlePistol.transform.localPosition = new Vector3(0.30f, -0.26f, 0.82f);
 
+        // --- Brazos del personaje en primera persona: manga del soldado + guantes.
+        GameObject rightForearm = CreateArmPart(
+            "Arm_Right_Forearm", PrimitiveType.Capsule, _sleeveMat, pivot.transform);
+        GameObject rightHand = CreateArmPart(
+            "Arm_Right_Hand", PrimitiveType.Sphere, _gloveMat, pivot.transform);
+        GameObject leftForearm = CreateArmPart(
+            "Arm_Left_Forearm", PrimitiveType.Capsule, _sleeveMat, pivot.transform);
+        GameObject leftHand = CreateArmPart(
+            "Arm_Left_Hand", PrimitiveType.Sphere, _gloveMat, pivot.transform);
+        rightHand.transform.localScale = Vector3.one * 0.12f;
+        leftHand.transform.localScale = Vector3.one * 0.11f;
+
+        GameObject reloadMag = CreateArmPart(
+            "Reload_Magazine", PrimitiveType.Cube, _weaponMat, pivot.transform);
+        reloadMag.transform.localScale = new Vector3(0.075f, 0.16f, 0.055f);
+        reloadMag.SetActive(false);
+
         AudioSource playerSfx = root.AddComponent<AudioSource>();
         playerSfx.playOnAwake = false;
         playerSfx.spatialBlend = 0f;
@@ -673,6 +709,14 @@ public static class ProjectBuilder
                 recoilKick = 0.11f, recoilPitch = 3.4f
             }
         };
+
+        FirstPersonArms arms = pivot.AddComponent<FirstPersonArms>();
+        arms.weapon = wp;
+        arms.rightForearm = rightForearm.transform;
+        arms.rightHand = rightHand.transform;
+        arms.leftForearm = leftForearm.transform;
+        arms.leftHand = leftHand.transform;
+        arms.magazineProp = reloadMag;
 
         _playerPrefab = SavePrefab(root, "Player_FPS");
     }
@@ -951,6 +995,7 @@ public static class ProjectBuilder
             Target[] targets = Object.FindObjectsByType<Target>();
             FirstPersonPlayer[] players = Object.FindObjectsByType<FirstPersonPlayer>();
             Weapon[] weapons = Object.FindObjectsByType<Weapon>();
+            FirstPersonArms[] arms = Object.FindObjectsByType<FirstPersonArms>();
             MenuController[] menus = Object.FindObjectsByType<MenuController>();
             BotAI[] bots = Object.FindObjectsByType<BotAI>();
 
@@ -965,7 +1010,7 @@ public static class ProjectBuilder
             }
 
             Debug.Log($"[VALIDATE] {name}: GM={managers.Length} targets={targets.Length} " +
-                      $"players={players.Length} weapons={weapons.Length} menus={menus.Length} " +
+                      $"players={players.Length} weapons={weapons.Length} brazos={arms.Length} menus={menus.Length} " +
                       $"bots={bots.Length} soldados={withSoldier} anim={withAnimator} " +
                       $"acotados={bounded} detectanSalida={detecting} armados={ranged}");
             foreach (Weapon w in weapons)
@@ -979,6 +1024,12 @@ public static class ProjectBuilder
                         Debug.Log($"[VALIDATE]     {slot.displayName}: modelo={(slot.model != null)} " +
                                   $"bocacha={(slot.muzzle != null)} sonido={(slot.fireClip != null)} " +
                                   $"cargador={slot.magazineSize} reserva={slot.reserve}");
+            }
+            foreach (FirstPersonArms a in arms)
+            {
+                Debug.Log($"[VALIDATE]   brazos: derecho={(a.rightForearm != null && a.rightHand != null)} " +
+                          $"izquierdo={(a.leftForearm != null && a.leftHand != null)} " +
+                          $"cargador={(a.magazineProp != null)} arma={(a.weapon != null)}");
             }
             foreach (GameManager gm in managers)
             {

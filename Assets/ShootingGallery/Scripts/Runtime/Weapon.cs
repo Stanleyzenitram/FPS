@@ -139,13 +139,19 @@ public class Weapon : MonoBehaviour
         float kick = slot != null ? slot.recoilKick : 0.06f;
         float pitch = slot != null ? slot.recoilPitch : 2f;
 
+        // La recarga baja y gira el arma; el pico está a mitad de la animación.
+        float reloadEase = IsReloading ? Mathf.Sin(Mathf.Clamp01(ReloadProgress) * Mathf.PI) : 0f;
+        Vector3 reloadOffset = new Vector3(0.05f, -0.16f, -0.07f) * reloadEase;
+        Quaternion reloadRotation = Quaternion.Euler(11f * reloadEase, 14f * reloadEase, -16f * reloadEase);
+
         Vector3 restPose = Vector3.Lerp(pivot.localPosition - Vector3.back * (_lastKick),
-            _pivotBasePosition + ads, 15f * dt);
+            _pivotBasePosition + ads + reloadOffset, 15f * dt);
         _lastKick = kick * _recoil;
         pivot.localPosition = restPose + Vector3.back * _lastKick;
 
-        Quaternion restRotation = Quaternion.Slerp(pivot.localRotation,
-            _pivotBaseRotation * Quaternion.Euler(aiming ? 1.5f : 0f, 0f, 0f), 15f * dt);
+        Quaternion targetRotation = _pivotBaseRotation *
+            Quaternion.Euler(aiming ? 1.5f : 0f, 0f, 0f) * reloadRotation;
+        Quaternion restRotation = Quaternion.Slerp(pivot.localRotation, targetRotation, 15f * dt);
         pivot.localRotation = restRotation * Quaternion.Euler(-pitch * _recoil, 0f, 0f);
 
         if (_reloadTimer > 0f)
