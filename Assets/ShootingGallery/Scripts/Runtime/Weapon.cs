@@ -20,9 +20,15 @@ public class WeaponSlot
     public AudioClip fireClip;
     public float fireRate = 0.16f;
     public float spread = 0f;
-    public float bulletSpeed = 95f;
+    public float bulletSpeed = 130f;
     public float recoilKick = 0.07f;
     public float recoilPitch = 2.2f;
+
+    [Header("Agarre en primera persona")]
+    [Tooltip("Puntos del WeaponPivot donde caen las muñecas al empuñar este arma.")]
+    public Vector3 gripRight = new Vector3(0.34f, -0.35f, 0.56f);
+    public Vector3 gripLeft = new Vector3(0.16f, -0.28f, 0.78f);
+    public bool pistol;
 }
 
 /// <summary>
@@ -58,6 +64,8 @@ public class Weapon : MonoBehaviour
     private Quaternion _pivotBaseRotation;
 
     public int CurrentIndex => _current;
+    public WeaponSlot CurrentSlot => slots != null && _current >= 0 && _current < slots.Length
+        ? slots[_current] : null;
     public string CurrentName => slots != null && slots.Length > 0 && slots[_current] != null
         ? slots[_current].displayName : "Sin arma";
     public int CurrentMagazine => slots != null && slots.Length > 0 && slots[_current] != null
@@ -124,7 +132,7 @@ public class Weapon : MonoBehaviour
 
     /// <summary>El manager llama a esto al empezar cada nivel.</summary>
     public void SetupAmmo(int primaryMagazine, int primaryReserve,
-        int secondaryMagazine = 8, int secondaryReserve = 16)
+        int secondaryMagazine = 15, int secondaryReserve = 45)
     {
         if (slots == null || slots.Length == 0) return;
         if (slots[0] != null)
@@ -138,6 +146,16 @@ public class Weapon : MonoBehaviour
             slots[1].magazineSize = Mathf.Max(1, secondaryMagazine);
             slots[1].magazine = Mathf.Max(1, secondaryMagazine);
             slots[1].reserve = Mathf.Max(0, secondaryReserve);
+        }
+        // El resto del arsenal del muro conserva su tamano de cargador y recibe
+        // tres cargadores de reserva; asi no se duplica la municion del nivel.
+        for (int i = 2; i < slots.Length; i++)
+        {
+            WeaponSlot slot = slots[i];
+            if (slot == null) continue;
+            slot.magazineSize = Mathf.Max(1, slot.magazineSize);
+            slot.magazine = slot.magazineSize;
+            slot.reserve = Mathf.Max(slot.reserve, slot.magazineSize * 3);
         }
         _current = 0;
         SelectWeapon(0);
@@ -200,6 +218,16 @@ public class Weapon : MonoBehaviour
             if (kb.rKey.wasPressedThisFrame) StartReload();
             if (kb.digit1Key.wasPressedThisFrame) SelectWeapon(0);
             if (kb.digit2Key.wasPressedThisFrame) SelectWeapon(1);
+            if (kb.digit3Key.wasPressedThisFrame) SelectWeapon(2);
+            if (kb.digit4Key.wasPressedThisFrame) SelectWeapon(3);
+            if (kb.digit5Key.wasPressedThisFrame) SelectWeapon(4);
+            if (kb.digit6Key.wasPressedThisFrame) SelectWeapon(5);
+            if (kb.digit7Key.wasPressedThisFrame) SelectWeapon(6);
+            if (kb.digit8Key.wasPressedThisFrame) SelectWeapon(7);
+            if (kb.digit9Key.wasPressedThisFrame) SelectWeapon(8);
+            if (kb.digit0Key.wasPressedThisFrame) SelectWeapon(9);
+            if (kb.qKey.wasPressedThisFrame) CycleWeapon(-1);
+            if (kb.eKey.wasPressedThisFrame) CycleWeapon(1);
         }
 
         if (_reloadTimer > 0f) return;
@@ -244,6 +272,23 @@ public class Weapon : MonoBehaviour
             if (slots[i] != null && slots[i].model != null)
                 slots[i].model.SetActive(i == index);
         GameManager.Instance?.NotifyAmmoChanged();
+    }
+
+    /// <summary>Recorre el arsenal con Q/E, ignorando huecos y envolviendo.</summary>
+    public void CycleWeapon(int delta)
+    {
+        if (slots == null || slots.Length == 0 || delta == 0) return;
+        int step = delta > 0 ? 1 : -1;
+        int index = _current;
+        for (int attempt = 0; attempt < slots.Length; attempt++)
+        {
+            index = (index + step + slots.Length) % slots.Length;
+            if (index != _current && slots[index] != null)
+            {
+                SelectWeapon(index);
+                return;
+            }
+        }
     }
 
     public void StartReload()

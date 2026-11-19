@@ -15,8 +15,8 @@ MonoBehaviour:
   displayName: 02 Modo contra bots
   sceneName: 02 Bots
   nextSceneName: 03 Jefe Final
-  startingAmmo: 20
-  startingReserve: 60
+  startingAmmo: 30
+  startingReserve: 120
   totalTargets: 2
   totalBots: 5
   hasBoss: 0

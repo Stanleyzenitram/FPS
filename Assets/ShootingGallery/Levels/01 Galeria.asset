@@ -15,8 +15,8 @@ MonoBehaviour:
   displayName: "01 Galer\xEDa de disparos"
   sceneName: 01 Galeria de disparos
   nextSceneName: 02 Bots
-  startingAmmo: 14
-  startingReserve: 42
+  startingAmmo: 30
+  startingReserve: 90
   totalTargets: 12
   totalBots: 5
   hasBoss: 0

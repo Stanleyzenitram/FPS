@@ -21,8 +21,8 @@ Shoot, y ajusta la escala del modelo para que mida 1,8 m (bots) o 2,5 m
 Nivel 1 "01 Galeria de disparos" (sala + campo exterior):
   - Sala cerrada con 12 dianas repartidas en 3 secciones (A, B y C),
     4 dianas por seccion a dos alturas y panel de color propio. Las
-    secciones van de 100 a 175 puntos segun dificultad. Cargador 14 +
-    reserva 42. Las dianas se colocan delante del muro decorativo porque
+    secciones van de 100 a 175 puntos segun dificultad. Cargador 30 +
+    reserva 90. Las dianas se colocan delante del muro decorativo porque
     el modulo Sun_Temple tiene 1,54 m de grosor y antes las tapaba.
   - Salida lateral senalizada en verde (pared derecha, hueco entre z=-4
     y z=2). Al salir (x >= 15,5) se accede a un campo exterior con 5
@@ -40,9 +40,19 @@ Nivel 1 "01 Galeria de disparos" (sala + campo exterior):
     (10,56 m de ancho) se centran en los limites de la colision (-4 y 2) y
     dos piezas de relleno Sun_Temple tapan los laterales del marco, asi que
     ya no queda un trozo de pared vacio junto a la salida.
+   - Pared de armas ("Armeria_Pared", en la pared izquierda, z=4): panel amplio
+     apoyado en la cara VISIBLE del muro del templo (x=-13,46; la colision
+     invisible esta mas atras, en x=-14,5), mirando al salon y centrado para
+     que se vea desde el punto de aparicion. Antes quedaba oculto dentro del
+     muro. Con TODAS las armas del paquete (AR-L/M/N/O/P y sus cinco PreSet) mas la
+     M9, en tres filas (4 + 4 + 3). Cada modelo lleva su collider y su
+     WeaponWallSwitch: disparando al arma que quieras se cambia al slot
+     correspondiente del arsenal y aparece un aviso en la HUD. No son dianas:
+     no dan puntos ni afectan a la victoria. Las coberturas de caja de la sala
+     estan en z=-6 para no tapar ninguna de las 11 miras desde la entrada.
 
 Nivel 2 "02 Bots": 5 soldados que persiguen al jugador + 2 dianas.
-  Cargador 20 + reserva 60. Soldado = 250 pts (2 impactos).
+  Cargador 30 + reserva 120. Soldado = 250 pts (2 impactos).
 
 Nivel 3 "03 Jefe Final": templo mucho mas grande (70 x 108 m) construido
   con modulos Sun_Temple: 36 paneles de muro (solidos y completos
@@ -51,7 +61,7 @@ Nivel 3 "03 Jefe Final": templo mucho mas grande (70 x 108 m) construido
   El jugador empieza en z=-26 y el jefe soldado gigante (12 impactos,
   1500 pts) espera al fondo, en z=50, con alcance de disparo de 90 m.
   Ademas hay 5 bots con alcance de 52 m y 2 dianas junto al muro del fondo.
-  Cargador 28 + reserva 84.
+  Cargador 30 + reserva 150.
 
 Se gana al eliminar todos los enemigos (soldados y, si hay, jefe). Las
 dianas son bonus y no bloquean la victoria. El jugador tiene 5 vidas:
@@ -66,7 +76,9 @@ Raton .................... apuntar (cursor bloqueado al empezar)
 Clic izquierdo ........... disparar
 Clic derecho (mantener) .. mira ADS (FOV mas cerrado, arma centrada)
 R ........................ recargar el arma actual
-1 / 2 .................... cambiar entre AR-L y M9
+1 ... 9 / 0 .............. elegir el slot 1 al 10 del arsenal
+Q / E .................... arma anterior / siguiente (recorre los 11 slots)
+Disparo a la armería ..... cambiar de arma disparando a la pared de armas
 Espacio .................. saltar
 Escape ................... soltar el cursor
 
@@ -81,7 +93,7 @@ puntos, con desvanecido progresivo.
 Abajo-izquierda: panel de VIDA con número grande, icono de cruz, cinco
 segmentos y estado ESTABLE / CRÍTICO en rojo al bajar de vida.
 Abajo-derecha: panel de ARSENAL con icono de munición, cargador grande,
-reserva, chips de las dos armas (activa resaltada), total de balas,
+reserva, chips del arma activa y la siguiente (con su número de slot), total de balas,
 estado de recarga y aviso parpadeante "MUNICIÓN BAJA" cuando el cargador
 baja del 25 %. La barra muestra la recarga o, si no recargas, el cargador.
 Centro: se mantiene la mira clásica blanca con contorno negro; al acertar
@@ -104,14 +116,20 @@ a generar el proyecto.
 
 4. ARMAS, SONIDO, FOGONAZO Y RECOIL
 ------------------------------------------------------------------------
-- Arsenal primario: fusil "Low Poly AR Weapon Pack 3" (AR_L.prefab), con
-  el atlas Texture/Low Poly Weapon.png aplicado a las 12 mallas.
-- Arsenal secundario: pistola M9 del proyecto (Assets/Objects/Handgun),
-  con la textura Tex_0009_1.jpg aplicada a todas sus mallas.
-  Se conserva la rotación original del FBX (270 grados en X) y solo se
-  añade un giro de -8 grados en Y: antes la pistola apuntaba al suelo.
-  Tamano ajustado: el fusil se aumento un poco (0,60) y la M9 se aplano
-  y reduzco para que no parezca mas grande que el AR en pantalla.
+- Arsenal: los 10 prefabs de "Low Poly AR Weapon Pack 3" (AR-L/M/N/O/P y
+  sus cinco variantes PreSet) mas la pistola M9 del proyecto, 11 slots en
+  total. Todos los AR usan el atlas Texture/Low Poly Weapon.png y la M9 la
+  textura Tex_0009_1.jpg. Se conserva la rotacion original del FBX de la
+  pistola (270 grados en X) y solo se anade un giro de -8 en Y.
+- Tamano de los fusiles: escala 1,5 (antes 0,60 y luego 0,82; se veian muy
+  pequenos). Cada modelo se ancla por su empuñadura para que la mano derecha
+  no se desplace al crecer; la bocacha y los puntos de agarre se calculan
+  desde la malla real de cada prefab, no con numeros fijos. La M9 sigue
+  plana y reducida para no parecer mas grande que un AR.
+- Cargadores realistas por arma (con tres cargadores de reserva):
+   AR-L / AR-M / AR-N y sus PreSet: 30 balas; AR-O y su PreSet: 25;
+   AR-P y su PreSet: 20 (son mas cortos); M9: 15 balas, como la pistola
+   real. Antes eran 14/12/10 y 8, y se notaban muy escasos.
 - Las balas ya NO son esferas: usan los modelos importados de la carpeta
   "Low Poly AR Weapon Pack 3/Prefabs/Bullets" (Bullet_A para el jugador y
   Bullet_E para los enemigos), escalados para que se vean en pantalla.
@@ -119,6 +137,9 @@ a generar el proyecto.
   roja si la dispara un enemigo, para que se vea la trayectoria. El modelo
   es solo visual: el impacto sigue siendo un Raycast barrido del GameObject
   raiz, asi que no atraviesa objetivos ni bloquea los disparos.
+- Velocidad de balas: fusiles 130 m/s y pistola 110 m/s (antes 95 y 80),
+   bala suelta 115 m/s por defecto. Bots 42 m/s y jefe 50 m/s (antes 30/38):
+   los proyectiles se ven y llegan antes sin perder el raycast barrido.
 - Sonido de disparo: Assets/Audio/FSX/Gunfire.wav (el que ya tenias).
 - El audio ya no depende de un AudioSource 3D temporal: el jugador y el
   GameManager tienen una fuente 2D (spatialBlend=0) que reproduce los
@@ -140,11 +161,20 @@ a generar el proyecto.
   muy sutil al caminar.
 - Personaje en primera persona: usa TU modelo de manos importado
   (Assets/fp-arms/source/arms.fbx) con color, normal, AO y roughness en un
-  material URP propio (Arms_Imported). La pose se ajusta al fusil y a la M9,
-  y los huesos de la muñeca izquierda acompañan la recarga. Si el FBX no
-  estuviera disponible, quedan unos brazos procedurales de respaldo (manga
-  camuflada y guantes) con el mismo comportamiento. El modelo no tiene
-  collider ni proyecta sombra, asi que no bloquea los disparos.
+  material URP propio (Arms_Imported). FirstPersonArms mide la posición de
+  reposo de cada muñeca y traslada el brazo entero (hombro, codo y muñeca)
+  hasta los puntos de agarre: derecha en la empuñadura del AR, izquierda en
+  el guardamanos. Antes las muñecas quedaban a 23 cm a cada lado del fusil
+  y parecía que no lo sujetaban. Las muñecas giran ligeramente y los dedos
+  se cierran en la empuñadura; la pose se interpola al cambiar a la M9 y la
+  izquierda sigue acompañando la recarga. Si el FBX no estuviera disponible,
+  quedan unos brazos procedurales de respaldo (manga camuflada y guantes)
+  con el mismo comportamiento. El modelo no tiene collider ni proyecta
+  sombra, asi que no bloquea los disparos.
+- Puntos de agarre por slot: cada arma guarda sus propios puntos de mano
+   derecha y mano de apoyo, medidos sobre su prefab. FirstPersonArms interpola
+   entre esos puntos al cambiar de arma, asi que la pose funciona con los
+   11 slots y no solo con dos.
 - Recarga animada por fases: al pulsar R (o al querer disparar con el
   cargador vacio) el arma baja y se gira, la mano izquierda alcanza el
   cargador, los dedos se cierran, el cargador se extrae y se muestra, se
@@ -165,7 +195,8 @@ Build Windows: "Shooting Gallery > Build Windows" -> Builds/Windows/FPS.exe
 ------------------------------------------------------------------------
 Assets/ShootingGallery/
   Scripts/Runtime/ ... jugador, brazos en primera persona, arma/arsenal,
-                       bala, diana, bots, jefe, manager/HUD y menus
+                       bala, diana, bots, jefe, manager/HUD, menus y
+                       WeaponWallSwitch (pared cambiadora de armas)
   Scripts/Editor/ ... ProjectBuilder: materiales, animaciones, prefabs,
                        escenas, Build Settings, validacion y build
   Prefabs/ ......... Player_FPS, Target_Diana, Bot_Soldier, Boss_Soldier,
@@ -211,7 +242,14 @@ Tools/generate_placeholders.py regenera texturas y efectos de sonido.
 - Las losetas de pavimento se escalan a 0,985 en X y se centran por bounds
   para que no se solapen 0,13 m ni parpadeen por z-fighting.
 - Cada objetivo tiene Target (tipo, puntos y vida). Bala y objetivo se
-  destruyen a la vez en Target.TakeHit.
+  destruyen a la vez en Target.TakeHit. La pared de armas usa en su lugar
+  WeaponWallSwitch: Projectile.HandleHit la detecta antes que a un Target
+  y llama a Weapon.SelectWeapon, por lo que no puntúa ni cuenta dianas.
+  Cada una de las 11 armas expuestas lleva un BoxCollider generado a partir
+  de sus bounds reales (mas margen) para que no haga falta ser preciso.
+  Los modelos del muro se giran 90 grados para verse de perfil; el collider
+  se mide en ejes locales, no con el AABB del mundo, para que siga cubriendo
+  toda la malla al girarla.
 - Los bots llevan CharacterController y se mueven con Move(): respetan
   muros y coberturas invisibles y ya no las atraviesan. Si chocan de lado,
   giran 55 grados durante 0,7 s para rodear el obstaculo. En el nivel 1 se

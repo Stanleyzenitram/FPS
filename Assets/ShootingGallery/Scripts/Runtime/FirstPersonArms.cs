@@ -36,25 +36,9 @@ public class FirstPersonArms : MonoBehaviour
     [Header("Referencia")]
     public Weapon weapon;
 
-    // Pose con el fusil (coordenadas locales del WeaponPivot).
+    // Respalo si el prefab no trae puntos de agarre configurados.
     private static readonly Vector3 RifleRightHand = new Vector3(0.34f, -0.35f, 0.56f);
-    private static readonly Vector3 RifleRightElbow = new Vector3(0.56f, -0.78f, 0.16f);
     private static readonly Vector3 RifleLeftHand = new Vector3(0.16f, -0.28f, 0.78f);
-    private static readonly Vector3 RifleLeftElbow = new Vector3(-0.12f, -0.74f, 0.30f);
-    private static readonly Vector3 RifleMagHome = new Vector3(0.30f, -0.44f, 0.58f);
-
-    // Pose con la pistola: el brazo izquierdo queda mas abierto y mas bajo.
-    private static readonly Vector3 PistolRightHand = new Vector3(0.32f, -0.35f, 0.56f);
-    private static readonly Vector3 PistolRightElbow = new Vector3(0.54f, -0.78f, 0.14f);
-    private static readonly Vector3 PistolLeftHand = new Vector3(0.10f, -0.60f, 0.44f);
-    private static readonly Vector3 PistolLeftElbow = new Vector3(-0.20f, -0.86f, 0.12f);
-    private static readonly Vector3 PistolMagHome = new Vector3(0.31f, -0.45f, 0.57f);
-
-    // Puntos alcanzados durante la recarga.
-    private static readonly Vector3 ReloadLeftHand = new Vector3(0.30f, -0.50f, 0.58f);
-    private static readonly Vector3 ReloadRightHand = new Vector3(0.40f, -0.44f, 0.48f);
-    private static readonly Vector3 ReloadLeftElbow = new Vector3(-0.04f, -0.76f, 0.34f);
-    private static readonly Vector3 ReloadRightElbow = new Vector3(0.62f, -0.84f, 0.10f);
 
     private struct ArmPose
     {
@@ -63,19 +47,25 @@ public class FirstPersonArms : MonoBehaviour
         public Vector3 magHome;
     }
 
-    private float _weaponBlend;
+    private Vector3 _rightGrip, _leftGrip;
+    private float _pistolBlend;
     private Vector3 _leftArmBasePos, _leftElbowBasePos, _leftWristBasePos;
     private Vector3 _rightArmBasePos, _rightElbowBasePos, _rightWristBasePos;
     private Quaternion _leftArmBaseRot, _leftElbowBaseRot, _leftWristBaseRot;
     private Quaternion _rightArmBaseRot, _rightElbowBaseRot, _rightWristBaseRot;
     private Quaternion[] _leftFingerBaseRot;
     private Quaternion[] _rightFingerBaseRot;
+    private Transform _pivot;
+    private Vector3 _leftWristRestInRoot, _rightWristRestInRoot;
 
     private void Awake()
     {
         if (weapon == null) weapon = GetComponentInParent<Weapon>();
         if (weapon == null) weapon = Weapon.Instance;
-        _weaponBlend = weapon != null ? weapon.CurrentIndex : 0f;
+        WeaponSlot startSlot = weapon != null ? weapon.CurrentSlot : null;
+        _rightGrip = startSlot != null ? startSlot.gripRight : RifleRightHand;
+        _leftGrip = startSlot != null ? startSlot.gripLeft : RifleLeftHand;
+        _pistolBlend = startSlot != null && startSlot.pistol ? 1f : 0f;
         RememberBone(handsRoot != null ? handsRoot : transform, leftArmBone, ref _leftArmBasePos, ref _leftArmBaseRot);
         RememberBone(handsRoot != null ? handsRoot : transform, leftElbowBone, ref _leftElbowBasePos, ref _leftElbowBaseRot);
         RememberBone(handsRoot != null ? handsRoot : transform, leftWristBone, ref _leftWristBasePos, ref _leftWristBaseRot);
@@ -89,13 +79,33 @@ public class FirstPersonArms : MonoBehaviour
             rightFingerBones = CollectFingerBones(rightWristBone);
         _leftFingerBaseRot = RememberRotations(leftFingerBones);
         _rightFingerBaseRot = RememberRotations(rightFingerBones);
+
+        if (handsRoot != null)
+        {
+            _pivot = weapon != null ? weapon.weaponPivot : handsRoot.parent;
+            if (_pivot == null) _pivot = handsRoot.parent;
+            // Muñecas en reposo medidas desde handsRoot: asi el desplazamiento
+            // hacia el arma es siempre el mismo aunque cambie la pose del arma.
+            _leftWristRestInRoot = handsRoot.InverseTransformPoint(
+                leftWristBone != null ? leftWristBone.position : handsRoot.position);
+            _rightWristRestInRoot = handsRoot.InverseTransformPoint(
+                rightWristBone != null ? rightWristBone.position : handsRoot.position);
+        }
     }
 
     private void Update()
     {
         if (weapon == null) return;
 
-        _weaponBlend = Mathf.MoveTowards(_weaponBlend, weapon.CurrentIndex, Time.deltaTime * 7f);
+        WeaponSlot slot = weapon.CurrentSlot;
+        if (slot != null)
+        {
+            // La pose se interpola entre los puntos de agarre del arma anterior
+            // y la nueva; ya no depende del indice numerico del arsenal.
+            _rightGrip = Vector3.MoveTowards(_rightGrip, slot.gripRight, Time.deltaTime * 4.5f);
+            _leftGrip = Vector3.MoveTowards(_leftGrip, slot.gripLeft, Time.deltaTime * 4.5f);
+            _pistolBlend = Mathf.MoveTowards(_pistolBlend, slot.pistol ? 1f : 0f, Time.deltaTime * 6f);
+        }
 
         float reach = weapon.ReloadReach;
         float pull = weapon.ReloadPull;
@@ -105,44 +115,70 @@ public class FirstPersonArms : MonoBehaviour
         else UpdateProcedural(reach, pull, insert);
         AnimateFingers(reach, pull, insert);
 
-        ArmPose pose = GetPose(_weaponBlend);
+        ArmPose pose = GetPose();
         AnimateMagazine(pose.magHome, reach, pull, insert);
     }
 
     private void UpdateModel(float reach, float pull, float insert)
     {
-        handsRoot.localPosition = Vector3.Lerp(rifleHandsPosition, pistolHandsPosition, _weaponBlend);
-        handsRoot.localRotation = Quaternion.Euler(Vector3.Lerp(rifleHandsEuler, pistolHandsEuler, _weaponBlend));
-        handsRoot.localScale = Vector3.one * Mathf.Lerp(rifleHandsScale, pistolHandsScale, _weaponBlend);
+        handsRoot.localPosition = Vector3.Lerp(rifleHandsPosition, pistolHandsPosition, _pistolBlend);
+        handsRoot.localRotation = Quaternion.Euler(Vector3.Lerp(rifleHandsEuler, pistolHandsEuler, _pistolBlend));
+        handsRoot.localScale = Vector3.one * Mathf.Lerp(rifleHandsScale, pistolHandsScale, _pistolBlend);
 
-        // La mano izquierda busca el cargador, lo extrae y lo vuelve a colocar.
-        SetBone(leftArmBone, _leftArmBasePos, _leftArmBaseRot,
-            new Vector3(6f * reach + 3f * pull, 0f, -7f * reach - 2f * pull),
-            new Vector3(0f, 0f, 0.012f * reach));
-        SetBone(leftElbowBone, _leftElbowBasePos, _leftElbowBaseRot,
-            new Vector3(-10f * reach - 4f * pull, 0f, 8f * reach + 3f * pull),
-            new Vector3(0f, 0f, 0.018f * reach));
-        SetBone(leftWristBone, _leftWristBasePos, _leftWristBaseRot,
-            new Vector3(-12f * reach - 5f * pull, 0f, 14f * reach + 8f * pull - 4f * insert),
-            new Vector3(-10f * pull, 0f, -0.015f * reach + 0.01f * insert));
+        ArmPose pose = GetPose();
 
-        // La derecha sostiene el arma y acompana el giro durante la extraccion.
-        SetBone(rightArmBone, _rightArmBasePos, _rightArmBaseRot,
-            new Vector3(2f * reach, 0f, -3f * reach - 2f * pull), Vector3.zero);
-        SetBone(rightElbowBone, _rightElbowBasePos, _rightElbowBaseRot,
-            new Vector3(-4f * reach, 0f, 4f * reach + 2f * pull), Vector3.zero);
-        SetBone(rightWristBone, _rightWristBasePos, _rightWristBaseRot,
-            new Vector3(-6f * reach, 0f, -10f * reach - 6f * pull + 4f * insert), Vector3.zero);
+        // Los puntos de agarre son los mismos que usan los brazos procedurales:
+        // mano derecha en la empuñadura, izquierda en el guardamanos. Antes el
+        // modelo importado se quedaba a 23 cm a cada lado del fusil.
+        Vector3 rightTarget = pose.rightHand + new Vector3(
+            0.02f * reach, -0.05f * reach - 0.02f * pull, -0.04f * reach - 0.02f * pull);
+        Vector3 leftTarget = pose.leftHand + new Vector3(
+            0.06f * reach + 0.03f * pull, -0.02f * reach,
+            0.02f * reach - 0.03f * pull + 0.02f * insert);
+
+        MoveArm(rightArmBone, rightElbowBone, rightWristBone,
+            _rightWristRestInRoot, rightTarget);
+        MoveArm(leftArmBone, leftElbowBone, leftWristBone,
+            _leftWristRestInRoot, leftTarget);
+
+        // Giro suave de las muñecas para que los dedos rodeen el arma.
+        if (rightWristBone != null)
+            rightWristBone.localRotation = _rightWristBaseRot * Quaternion.Euler(-16f, 0f, -6f);
+        if (leftWristBone != null)
+            leftWristBone.localRotation = _leftWristBaseRot * Quaternion.Euler(-8f, 0f, 10f);
+    }
+
+    /// <summary>
+    /// Traslada todo el brazo (hombro, codo y muñeca) el mismo vector para que
+    /// la muñeca caiga sobre el punto de agarre sin estirar la malla importada.
+    /// </summary>
+    private void MoveArm(Transform arm, Transform elbow, Transform wrist,
+        Vector3 restInRoot, Vector3 targetPivotLocal)
+    {
+        if (_pivot == null || wrist == null || handsRoot == null) return;
+
+        Vector3 restWorld = handsRoot.TransformPoint(restInRoot);
+        Vector3 delta = _pivot.TransformPoint(targetPivotLocal) - restWorld;
+
+        // Calcular las tres posiciones antes de asignar: al mover el hombro
+        // tambien se mueven sus hijos, y sumar el delta dos veces los romperia.
+        Vector3 armTarget = arm != null ? arm.position + delta : Vector3.zero;
+        Vector3 elbowTarget = elbow != null ? elbow.position + delta : Vector3.zero;
+        Vector3 wristTarget = wrist.position + delta;
+
+        if (arm != null) arm.position = armTarget;
+        if (elbow != null) elbow.position = elbowTarget;
+        wrist.position = wristTarget;
     }
 
     private void UpdateProcedural(float reach, float pull, float insert)
     {
-        ArmPose pose = GetPose(_weaponBlend);
+        ArmPose pose = GetPose();
 
-        Vector3 rh = Vector3.Lerp(pose.rightHand, ReloadRightHand, reach * 0.55f);
-        Vector3 re = Vector3.Lerp(pose.rightElbow, ReloadRightElbow, reach * 0.55f);
-        Vector3 lh = Vector3.Lerp(pose.leftHand, ReloadLeftHand, reach);
-        Vector3 le = Vector3.Lerp(pose.leftElbow, ReloadLeftElbow, reach);
+        Vector3 rh = Vector3.Lerp(pose.rightHand, pose.rightHand + new Vector3(0.06f, -0.09f, -0.08f), reach * 0.55f);
+        Vector3 re = Vector3.Lerp(pose.rightElbow, pose.rightElbow + new Vector3(0.06f, -0.06f, -0.06f), reach * 0.55f);
+        Vector3 lh = Vector3.Lerp(pose.leftHand, pose.leftHand + new Vector3(-0.02f, -0.10f, -0.06f), reach);
+        Vector3 le = Vector3.Lerp(pose.leftElbow, pose.leftElbow + new Vector3(0.12f, 0.02f, 0.04f), reach);
         Vector3 magPull = new Vector3(0.06f, -0.12f, -0.04f) * pull;
         lh += magPull;
         le += magPull * 0.4f;
@@ -197,8 +233,8 @@ public class FirstPersonArms : MonoBehaviour
 
     private void AnimateFingers(float reach, float pull, float insert)
     {
-        float leftCurl = 18f * reach + 30f * pull - 22f * insert;
-        float rightCurl = 10f + 8f * reach - 6f * insert;
+        float leftCurl = 24f * reach + 30f * pull - 22f * insert;
+        float rightCurl = 28f + 6f * reach - 8f * insert;
         ApplyFingerCurl(leftFingerBones, _leftFingerBaseRot, leftCurl);
         ApplyFingerCurl(rightFingerBones, _rightFingerBaseRot, rightCurl);
     }
@@ -213,23 +249,22 @@ public class FirstPersonArms : MonoBehaviour
         }
     }
 
-    private static void SetBone(Transform bone, Vector3 basePosition, Quaternion baseRotation,
-        Vector3 eulerOffset, Vector3 positionOffset)
+    private ArmPose GetPose()
     {
-        if (bone == null) return;
-        bone.localPosition = basePosition + positionOffset;
-        bone.localRotation = baseRotation * Quaternion.Euler(eulerOffset);
-    }
+        Vector3 rightElbowOffset = Vector3.Lerp(
+            new Vector3(0.22f, -0.43f, -0.40f), new Vector3(0.22f, -0.43f, -0.42f), _pistolBlend);
+        Vector3 leftElbowOffset = Vector3.Lerp(
+            new Vector3(-0.28f, -0.46f, -0.48f), new Vector3(-0.30f, -0.26f, -0.32f), _pistolBlend);
+        Vector3 magOffset = Vector3.Lerp(
+            new Vector3(-0.04f, -0.09f, 0.02f), new Vector3(-0.01f, -0.10f, 0.01f), _pistolBlend);
 
-    private static ArmPose GetPose(float blend)
-    {
         return new ArmPose
         {
-            rightHand = Vector3.Lerp(RifleRightHand, PistolRightHand, blend),
-            rightElbow = Vector3.Lerp(RifleRightElbow, PistolRightElbow, blend),
-            leftHand = Vector3.Lerp(RifleLeftHand, PistolLeftHand, blend),
-            leftElbow = Vector3.Lerp(RifleLeftElbow, PistolLeftElbow, blend),
-            magHome = Vector3.Lerp(RifleMagHome, PistolMagHome, blend)
+            rightHand = _rightGrip,
+            rightElbow = _rightGrip + rightElbowOffset,
+            leftHand = _leftGrip,
+            leftElbow = _leftGrip + leftElbowOffset,
+            magHome = _rightGrip + magOffset
         };
     }
 

@@ -14,7 +14,7 @@ public class BossAI : BotAI
         fireRange = 90f;
         fireInterval = 1.35f;
         fireSpread = 2f;
-        bulletSpeed = 38f;
+        bulletSpeed = 50f;
         requiresExitDetection = false;
 
         base.Start();

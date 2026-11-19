@@ -124,6 +124,13 @@ public class GameManager : MonoBehaviour
         }
     }
 
+    /// <summary>La pared de armas avisa de que el jugador ha cambiado de arsenal.</summary>
+    public void NotifyWeaponSwitch(string text, float seconds)
+    {
+        if (_gameOver) return;
+        ShowMessage(text, seconds);
+    }
+
     /// <summary>Un soldado avisa cuando descubre al jugador al salir de la galeria.</summary>
     public void OnEnemiesDetected()
     {
@@ -566,19 +573,25 @@ public class GameManager : MonoBehaviour
 
         float chipW = S(60f), chipH = S(44f), chipGap = S(6f);
         float chipX = x + pw - S(16f) - chipW * 2f - chipGap;
-        for (int i = 0; i < Mathf.Min(2, weapon.slots.Length); i++)
+        // Con mas de dos armas los chips muestran la activa y la siguiente.
+        int current = weapon.CurrentIndex;
+        int next = weapon.slots.Length > 1 ? (current + 1) % weapon.slots.Length : current;
+        int[] shown = { current, next };
+        for (int chipIndex = 0; chipIndex < shown.Length; chipIndex++)
         {
-            WeaponSlot slot = weapon.slots[i];
+            int i = shown[chipIndex];
+            if (chipIndex == 1 && i == shown[0]) continue;
+            WeaponSlot slot = i >= 0 && i < weapon.slots.Length ? weapon.slots[i] : null;
             if (slot == null) continue;
-            bool active = i == weapon.CurrentIndex;
-            Rect chip = new Rect(chipX + i * (chipW + chipGap), y + S(42f), chipW, chipH);
+            bool active = i == current;
+            Rect chip = new Rect(chipX + chipIndex * (chipW + chipGap), y + S(42f), chipW, chipH);
             Color chipAccent = active ? accent : Dim;
             UIStyles.Fill(chip, active
                 ? new Color(accent.r, accent.g, accent.b, 0.20f)
                 : new Color(1f, 1f, 1f, 0.05f));
             UIStyles.Fill(new Rect(chip.x, chip.y, chipW, S(2f)), chipAccent);
             GUI.Label(new Rect(chip.x + S(5f), chip.y + S(3f), chip.width - S(10f), S(16f)),
-                "0" + (i + 1), HudLabel(10, TextAnchor.MiddleLeft, chipAccent, true));
+                (i + 1).ToString("00"), HudLabel(10, TextAnchor.MiddleLeft, chipAccent, true));
             GUI.Label(new Rect(chip.x + S(5f), chip.y + S(19f), chip.width - S(10f), S(20f)),
                 slot.magazine.ToString("00"), HudLabel(14, TextAnchor.MiddleLeft,
                     active ? White : Muted, true));

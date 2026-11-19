@@ -7,7 +7,7 @@ public class Projectile : MonoBehaviour
     public enum Owner { Player, Enemy }
 
     public Owner owner = Owner.Player;
-    public float speed = 90f;
+    public float speed = 115f;
     public int damage = 1;
     public float life = 4f;
     public Transform shooter;
@@ -89,6 +89,18 @@ public class Projectile : MonoBehaviour
 
     private void HandleHit(RaycastHit hit)
     {
+        // La pared de armas no es un objetivo: cambia el arsenal y no puntua.
+        if (owner == Owner.Player)
+        {
+            WeaponWallSwitch weaponWall = hit.collider.GetComponentInParent<WeaponWallSwitch>();
+            if (weaponWall != null)
+            {
+                weaponWall.Activate();
+                Destroy(gameObject);
+                return;
+            }
+        }
+
         Target target = hit.collider.GetComponentInParent<Target>();
         if (target != null)
         {

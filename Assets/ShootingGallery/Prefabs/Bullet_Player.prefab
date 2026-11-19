@@ -1,6 +1,6 @@
 %YAML 1.1
 %TAG !u! tag:unity3d.com,2011:
---- !u!1 &6617595206003007346
+--- !u!1 &2780438112405763920
 GameObject:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -8,9 +8,9 @@ GameObject:
   m_PrefabAsset: {fileID: 0}
   serializedVersion: 6
   m_Component:
-  - component: {fileID: 2718501606473934812}
-  - component: {fileID: 2834424078114535097}
-  - component: {fileID: 859356108748281525}
+  - component: {fileID: 7279363469715983339}
+  - component: {fileID: 2138595187370240431}
+  - component: {fileID: 3688353475514176364}
   m_Layer: 0
   m_Name: Bullet_Player
   m_TagString: Untagged
@@ -18,30 +18,30 @@ GameObject:
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!4 &2718501606473934812
+--- !u!4 &7279363469715983339
 Transform:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 6617595206003007346}
+  m_GameObject: {fileID: 2780438112405763920}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
-  - {fileID: 4228053307064502001}
+  - {fileID: 2626005552482405256}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!96 &2834424078114535097
+--- !u!96 &2138595187370240431
 TrailRenderer:
   serializedVersion: 4
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 6617595206003007346}
+  m_GameObject: {fileID: 2780438112405763920}
   m_Enabled: 1
   m_CastShadows: 1
   m_ReceiveShadows: 1
@@ -153,13 +153,13 @@ TrailRenderer:
   m_Autodestruct: 0
   m_Emitting: 0
   m_ApplyActiveColorSpace: 1
---- !u!114 &859356108748281525
+--- !u!114 &3688353475514176364
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 6617595206003007346}
+  m_GameObject: {fileID: 2780438112405763920}
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 507addfb7217e0b4b9af8ed2a8e3c339, type: 3}
@@ -170,13 +170,13 @@ MonoBehaviour:
   damage: 1
   life: 4
   shooter: {fileID: 0}
---- !u!1001 &6932010456605397043
+--- !u!1001 &9146548057936371018
 PrefabInstance:
   m_ObjectHideFlags: 0
   serializedVersion: 2
   m_Modification:
     serializedVersion: 3
-    m_TransformParent: {fileID: 2718501606473934812}
+    m_TransformParent: {fileID: 7279363469715983339}
     m_Modifications:
     - target: {fileID: 5392301891350900141, guid: bdbe99911b104c44cbd74b7cb58c4f0b, type: 3}
       propertyPath: m_CastShadows
@@ -255,8 +255,8 @@ PrefabInstance:
     m_AddedGameObjects: []
     m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: bdbe99911b104c44cbd74b7cb58c4f0b, type: 3}
---- !u!4 &4228053307064502001 stripped
+--- !u!4 &2626005552482405256 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: 6529765209177642690, guid: bdbe99911b104c44cbd74b7cb58c4f0b, type: 3}
-  m_PrefabInstance: {fileID: 6932010456605397043}
+  m_PrefabInstance: {fileID: 9146548057936371018}
   m_PrefabAsset: {fileID: 0}

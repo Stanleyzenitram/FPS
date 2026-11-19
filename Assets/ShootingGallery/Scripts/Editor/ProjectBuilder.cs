@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.IO;
 using UnityEditor;
 using UnityEditor.Animations;
@@ -14,6 +15,46 @@ using UnityEngine.SceneManagement;
 /// </summary>
 public static class ProjectBuilder
 {
+    private const string WeaponPackRoot = "Assets/Low Poly AR Weapon Pack 3/Prefabs/Weapons/";
+    private const float ViewWeaponScale = 1.5f;
+    private const float RifleBulletSpeed = 130f;
+    private const float PistolBulletSpeed = 110f;
+
+    private struct WeaponAssetInfo
+    {
+        public string file;
+        public string label;
+        public int magazine;
+        public WeaponAssetInfo(string file, string label, int magazine)
+        {
+            this.file = file;
+            this.label = label;
+            this.magazine = magazine;
+        }
+    }
+
+    private struct WeaponRig
+    {
+        public GameObject model;
+        public Transform muzzle;
+        public Vector3 gripRight;
+        public Vector3 gripLeft;
+    }
+
+    private static readonly WeaponAssetInfo[] PackWeapons =
+    {
+        new WeaponAssetInfo("AR_L.prefab", "AR-L 5.56", 30),
+        new WeaponAssetInfo("AR_M.prefab", "AR-M 5.56", 30),
+        new WeaponAssetInfo("AR_N.prefab", "AR-N 5.56", 30),
+        new WeaponAssetInfo("AR_O.prefab", "AR-O 5.56", 25),
+        new WeaponAssetInfo("AR_P.prefab", "AR-P 5.56", 20),
+        new WeaponAssetInfo("AR_PreSet/AR_L_PreSet.prefab", "AR-L PRESET", 30),
+        new WeaponAssetInfo("AR_PreSet/AR_M_PreSet.prefab", "AR-M PRESET", 30),
+        new WeaponAssetInfo("AR_PreSet/AR_N_PreSet.prefab", "AR-N PRESET", 30),
+        new WeaponAssetInfo("AR_PreSet/AR_O_PreSet.prefab", "AR-O PRESET", 25),
+        new WeaponAssetInfo("AR_PreSet/AR_P_PreSet.prefab", "AR-P PRESET", 20)
+    };
+
     private const string Root = "Assets/ShootingGallery";
     private const string SoldierModel = "Assets/LowPolySoldiers_demo/models/Soldier_demo.FBX";
     private const string SoldierPrefab = "Assets/LowPolySoldiers_demo/Soldier_demo_Prefab.prefab";
@@ -39,6 +80,8 @@ public static class ProjectBuilder
     private static Font _hudFont;
     private static Texture2D _healthIcon, _ammoIcon, _hitmarkerIcon;
     private static GameObject _soldierAsset, _armsAsset, _bulletModel, _enemyBulletModel;
+    private static GameObject[] _packWeapons;
+    private static GameObject _m9Asset;
     private static GameObject _pavement, _solidWall, _fullWall, _decoColumn, _doorFrame,
         _tower, _crate, _barrel, _stone, _bench, _torch;
     // Los prefabs de Sun_Temple no tienen el pivote en el centro de su malla:
@@ -58,11 +101,11 @@ public static class ProjectBuilder
         CreatePrefabs();
 
         LevelDefinition gallery = CreateLevel("01 Galeria", "01 Galería de disparos",
-            "01 Galeria de disparos", "02 Bots", 14, 42, 12, 5, false);
+            "01 Galeria de disparos", "02 Bots", 30, 90, 12, 5, false);
         LevelDefinition bots = CreateLevel("02 Bots", "02 Modo contra bots",
-            "02 Bots", "03 Jefe Final", 20, 60, 2, 5, false);
+            "02 Bots", "03 Jefe Final", 30, 120, 2, 5, false);
         LevelDefinition boss = CreateLevel("03 Jefe", "03 Jefe final",
-            "03 Jefe Final", "", 28, 84, 2, 5, true);
+            "03 Jefe Final", "", 30, 150, 2, 5, true);
 
         CreateMenuScene();
         CreateGalleryScene(gallery);
@@ -124,6 +167,10 @@ public static class ProjectBuilder
         _armsRoughness = ConfigureLinearTexture(ArmsRoughness);
         _armsOcclusion = ConfigureLinearTexture(ArmsOcclusion);
         _armsAsset = AssetDatabase.LoadAssetAtPath<GameObject>(ArmsModel);
+        _packWeapons = new GameObject[PackWeapons.Length];
+        for (int i = 0; i < PackWeapons.Length; i++)
+            _packWeapons[i] = AssetDatabase.LoadAssetAtPath<GameObject>(WeaponPackRoot + PackWeapons[i].file);
+        _m9Asset = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Objects/Handgun/M9.FBX");
         _bulletModel = AssetDatabase.LoadAssetAtPath<GameObject>(BulletPlayerModel);
         _enemyBulletModel = AssetDatabase.LoadAssetAtPath<GameObject>(BulletEnemyModel);
 
@@ -819,7 +866,7 @@ public static class ProjectBuilder
             bot.sfxSource = fireAudio;
             bot.fireRange = 30f;
             bot.fireInterval = 2.2f;
-            bot.bulletSpeed = 30f;
+            bot.bulletSpeed = 42f;
             bot.fireSpread = 3.5f;
         }
 
@@ -840,6 +887,140 @@ public static class ProjectBuilder
         barrel.transform.localScale = new Vector3(scale.x * 0.4f, scale.z * 0.5f, scale.x * 0.4f);
         SetMaterial(barrel, _weaponMat);
         return weapon;
+    }
+
+    private static Transform FindModelTransform(GameObject model, string token)
+    {
+        if (model == null) return null;
+        string key = token.ToLowerInvariant();
+        foreach (Transform child in model.GetComponentsInChildren<Transform>(true))
+        {
+            if (child == model.transform) continue;
+            if (child.name.ToLowerInvariant().Contains(key)) return child;
+        }
+        return null;
+    }
+
+    /// <summary>Posicion de una malla hija medida desde el origen del modelo.</summary>
+    private static Vector3 FindModelPoint(GameObject model, string[] tokens, Vector3 fallback)
+    {
+        foreach (string token in tokens)
+        {
+            Transform found = FindModelTransform(model, token);
+            if (found != null) return model.transform.InverseTransformPoint(found.position);
+        }
+        return fallback;
+    }
+
+    /// <summary>Mano de apoyo: primer punto delantero (nunca el cargador atras).</summary>
+    private static Vector3 FindOffhandLocal(GameObject model, Vector3 gripLocal)
+    {
+        string[] tokens = { "barrelguard_rail", "forwardgrip", "barrelguard", "_mag", "barrel" };
+        foreach (string token in tokens)
+        {
+            Transform found = FindModelTransform(model, token);
+            if (found == null) continue;
+            Vector3 point = model.transform.InverseTransformPoint(found.position);
+            if (point.z > gripLocal.z + 0.05f) return point;
+        }
+        return gripLocal + new Vector3(0f, 0.04f, 0.25f);
+    }
+
+    private static Transform CreateMuzzle(string name, Vector3 worldPosition, Transform pivot)
+    {
+        GameObject muzzle = new GameObject(name);
+        muzzle.transform.SetParent(pivot, false);
+        muzzle.transform.localPosition = pivot.InverseTransformPoint(worldPosition);
+        return muzzle.transform;
+    }
+
+    /// <summary>
+    /// Modelo de primera persona del paquete. Se ancla por la empuñadura para
+    /// que, al cambiar la escala a 1,5, la mano derecha siga cayendo en el
+    /// mismo sitio y la bocacha se recalcule desde los bounds reales.
+    /// </summary>
+    private static WeaponRig CreatePackViewModel(GameObject asset, string name, Transform pivot)
+    {
+        WeaponRig rig = new WeaponRig();
+        GameObject model;
+
+        if (asset != null)
+        {
+            model = PrefabUtility.InstantiatePrefab(asset) as GameObject;
+            model.name = name;
+            model.transform.SetParent(pivot, false);
+            model.transform.localRotation = Quaternion.Euler(0f, -6f, 0f);
+            model.transform.localScale = Vector3.one * ViewWeaponScale;
+
+            Vector3 gripLocal = FindModelPoint(model, new[] { "_grip" }, new Vector3(0f, 0f, -0.03f));
+            Vector3 anchor = new Vector3(0.32f, -0.34f, 0.72f);
+            model.transform.localPosition = anchor -
+                (model.transform.localRotation * Vector3.Scale(gripLocal, model.transform.localScale));
+            ApplyWeaponMaterial(model, _weaponArMat);
+
+            Vector3 offhandLocal = FindOffhandLocal(model, gripLocal);
+            rig.gripRight = pivot.InverseTransformPoint(model.transform.TransformPoint(gripLocal));
+            rig.gripLeft = pivot.InverseTransformPoint(model.transform.TransformPoint(offhandLocal));
+
+            Transform hint = FindModelTransform(model, "muzzle");
+            if (hint == null) hint = FindModelTransform(model, "barrel");
+            Bounds bounds = BoundsOf(model);
+            Vector3 tip = new Vector3(
+                hint != null ? hint.position.x : bounds.center.x,
+                hint != null ? hint.position.y : bounds.center.y,
+                bounds.max.z) + model.transform.forward * 0.025f;
+            rig.muzzle = CreateMuzzle("Muzzle_" + name, tip, pivot);
+        }
+        else
+        {
+            model = CreateCubeWeapon(name + "_Fallback", new Vector3(0.12f, 0.14f, 0.6f) * ViewWeaponScale);
+            model.name = name;
+            model.transform.SetParent(pivot, false);
+            model.transform.localPosition = new Vector3(0.32f, -0.34f, 0.72f);
+            rig.gripRight = model.transform.localPosition;
+            rig.gripLeft = rig.gripRight + new Vector3(-0.16f, 0.06f, 0.25f);
+            rig.muzzle = CreateMuzzle("Muzzle_" + name,
+                pivot.TransformPoint(rig.gripRight + new Vector3(0f, 0.08f, 0.85f)), pivot);
+        }
+
+        rig.model = model;
+        return rig;
+    }
+
+    /// <summary>Pistola M9: conserva la rotacion del FBX y sus puntos de agarre.</summary>
+    private static WeaponRig CreatePistolViewModel(Transform pivot)
+    {
+        WeaponRig rig = new WeaponRig();
+        GameObject pistol;
+
+        if (_m9Asset != null)
+        {
+            pistol = PrefabUtility.InstantiatePrefab(_m9Asset) as GameObject;
+            pistol.name = "Weapon_M9_9mm";
+            pistol.transform.SetParent(pivot, false);
+            // El FBX trae rotation (270,0,0): sin conservarla la pistola mira al suelo.
+            Quaternion m9BaseRotation = pistol.transform.localRotation;
+            FitModel(pistol, 0.36f, true);
+            Vector3 m9Scale = pistol.transform.localScale;
+            m9Scale.z *= 0.62f;
+            pistol.transform.localScale = m9Scale;
+            pistol.transform.localPosition = new Vector3(0.30f, -0.28f, 0.55f);
+            pistol.transform.localRotation = Quaternion.Euler(0f, -8f, 0f) * m9BaseRotation;
+            ApplyWeaponMaterial(pistol, _weaponM9Mat);
+        }
+        else
+        {
+            pistol = CreateCubeWeapon("WeaponFallback_M9", new Vector3(0.09f, 0.12f, 0.28f));
+            pistol.name = "Weapon_M9_9mm";
+            pistol.transform.SetParent(pivot, false);
+            pistol.transform.localPosition = new Vector3(0.30f, -0.28f, 0.55f);
+        }
+
+        rig.model = pistol;
+        rig.muzzle = CreateMuzzle("Muzzle_M9", pivot.TransformPoint(new Vector3(0.30f, -0.24f, 0.76f)), pivot);
+        rig.gripRight = new Vector3(0.32f, -0.35f, 0.56f);
+        rig.gripLeft = new Vector3(0.10f, -0.60f, 0.44f);
+        return rig;
     }
 
     /// <summary>Parte de brazo sin collider ni sombras para que nunca estorbe al disparo.</summary>
@@ -877,59 +1058,55 @@ public static class ProjectBuilder
         GameObject pivot = new GameObject("WeaponPivot");
         pivot.transform.SetParent(camGo.transform, false);
 
-        // --- Arma principal: AR del paquete importado.
-        GameObject arPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(
-            "Assets/Low Poly AR Weapon Pack 3/Prefabs/Weapons/AR_L.prefab");
-        GameObject rifle;
-        if (arPrefab != null)
+        // --- Arsenal completo: los 10 AR del paquete + la pistola M9.
+        // Todos los modelos se crean bajo el pivote; Weapon.Awake deja activo
+        // solo el correspondiente al slot elegido.
+        List<WeaponSlot> weaponSlots = new List<WeaponSlot>();
+        for (int i = 0; i < PackWeapons.Length && i < _packWeapons.Length; i++)
         {
-            rifle = PrefabUtility.InstantiatePrefab(arPrefab) as GameObject;
-            rifle.transform.SetParent(pivot.transform, false);
-            rifle.transform.localPosition = new Vector3(0.30f, -0.30f, 0.55f);
-            rifle.transform.localRotation = Quaternion.Euler(0f, -6f, 0f);
-            rifle.transform.localScale = Vector3.one * 0.60f;
-            ApplyWeaponMaterial(rifle, _weaponArMat);
-        }
-        else
-        {
-            rifle = CreateCubeWeapon("WeaponFallback_AR", new Vector3(0.12f, 0.14f, 0.6f));
-            rifle.transform.SetParent(pivot.transform, false);
-            rifle.transform.localPosition = new Vector3(0.30f, -0.30f, 0.55f);
-        }
-
-        // --- Arma secundaria: pistola M9 del proyecto (o cubos de respaldo).
-        GameObject m9Prefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Objects/Handgun/M9.FBX");
-        GameObject pistol;
-        if (m9Prefab != null)
-        {
-            pistol = PrefabUtility.InstantiatePrefab(m9Prefab) as GameObject;
-            pistol.transform.SetParent(pivot.transform, false);
-            // El FBX trae rotation (270,0,0): sin conservarla la pistola mira al suelo.
-            Quaternion m9BaseRotation = pistol.transform.localRotation;
-            FitModel(pistol, 0.36f, true);
-            // El modelo original es demasiado alto: una pistola debe ser plana
-            // comparada con el fusil. Por la rotacion de 270 grados del FBX,
-            // la altura en pantalla la controla el eje local Z.
-            Vector3 m9Scale = pistol.transform.localScale;
-            m9Scale.z *= 0.62f;
-            pistol.transform.localScale = m9Scale;
-            pistol.transform.localPosition = new Vector3(0.30f, -0.28f, 0.55f);
-            pistol.transform.localRotation = Quaternion.Euler(0f, -8f, 0f) * m9BaseRotation;
-            ApplyWeaponMaterial(pistol, _weaponM9Mat);
-        }
-        else
-        {
-            pistol = CreateCubeWeapon("WeaponFallback_M9", new Vector3(0.09f, 0.12f, 0.28f));
-            pistol.transform.SetParent(pivot.transform, false);
-            pistol.transform.localPosition = new Vector3(0.30f, -0.28f, 0.55f);
+            WeaponRig rig = CreatePackViewModel(_packWeapons[i],
+                "Weapon_" + PackWeapons[i].label.Replace(' ', '_'), pivot.transform);
+            weaponSlots.Add(new WeaponSlot
+            {
+                displayName = PackWeapons[i].label,
+                model = rig.model,
+                muzzle = rig.muzzle,
+                magazineSize = PackWeapons[i].magazine,
+                magazine = PackWeapons[i].magazine,
+                reserve = PackWeapons[i].magazine * 3,
+                reloadTime = 1.5f,
+                fireClip = _gun,
+                fireRate = 0.15f,
+                bulletSpeed = RifleBulletSpeed,
+                recoilKick = 0.075f,
+                recoilPitch = 2.1f,
+                gripRight = rig.gripRight,
+                gripLeft = rig.gripLeft,
+                pistol = false
+            });
         }
 
-        GameObject muzzleAr = new GameObject("Muzzle_AR");
-        muzzleAr.transform.SetParent(pivot.transform, false);
-        muzzleAr.transform.localPosition = new Vector3(0.28f, -0.25f, 1.0f);
-        GameObject muzzlePistol = new GameObject("Muzzle_M9");
-        muzzlePistol.transform.SetParent(pivot.transform, false);
-        muzzlePistol.transform.localPosition = new Vector3(0.30f, -0.24f, 0.76f);
+        WeaponRig pistolRig = CreatePistolViewModel(pivot.transform);
+        weaponSlots.Add(new WeaponSlot
+        {
+            displayName = "M9 9mm",
+            model = pistolRig.model,
+            muzzle = pistolRig.muzzle,
+            magazineSize = 15,
+            magazine = 15,
+            reserve = 45,
+            reloadTime = 1.1f,
+            fireClip = _gun,
+            fireRate = 0.28f,
+            bulletSpeed = PistolBulletSpeed,
+            recoilKick = 0.11f,
+            recoilPitch = 3.4f,
+            gripRight = pistolRig.gripRight,
+            gripLeft = pistolRig.gripLeft,
+            pistol = true
+        });
+        for (int i = 1; i < weaponSlots.Count; i++)
+            if (weaponSlots[i].model != null) weaponSlots[i].model.SetActive(false);
 
         // --- Manos importadas (modelo del usuario), con brazos procedurales de respaldo.
         Transform rightForearm = null, rightHand = null, leftForearm = null, leftHand = null;
@@ -999,23 +1176,7 @@ public static class ProjectBuilder
         wp.muzzleFlashPrefab = _muzzleFlashPrefab;
         wp.reloadClip = _reload;
         wp.sfxSource = playerSfx;
-        wp.slots = new[]
-        {
-            new WeaponSlot
-            {
-                displayName = "AR-L 5.56", model = rifle, muzzle = muzzleAr.transform,
-                magazineSize = 14, magazine = 14, reserve = 42, reloadTime = 1.5f,
-                fireClip = _gun, fireRate = 0.15f, bulletSpeed = 95f,
-                recoilKick = 0.085f, recoilPitch = 2.2f
-            },
-            new WeaponSlot
-            {
-                displayName = "M9 9mm", model = pistol, muzzle = muzzlePistol.transform,
-                magazineSize = 8, magazine = 8, reserve = 16, reloadTime = 1.1f,
-                fireClip = _gun, fireRate = 0.28f, bulletSpeed = 80f,
-                recoilKick = 0.11f, recoilPitch = 3.4f
-            }
-        };
+        wp.slots = weaponSlots.ToArray();
 
         FirstPersonArms arms = pivot.AddComponent<FirstPersonArms>();
         arms.weapon = wp;
@@ -1405,6 +1566,103 @@ public static class ProjectBuilder
         PlaceCrateCover("Cobertura_Ext_3", new Vector3(52f, 0f, 6f), new Vector3(4f, 2f, 4f), 35f);
         PlaceTempleDecor(new Vector3(42f, 0f, 0f), 28f, 40f);
         AddLight(Vector3.zero, 1.2f);
+        BuildWeaponWall();
+    }
+
+    /// <summary>
+    /// Pared de armas de la galeria. Cada arma expuesta lleva un collider y un
+    /// WeaponWallSwitch: al dispararla cambia el arsenal del jugador. No son
+    /// Target, asi que no suman puntos ni cuentan para terminar el nivel.
+    /// </summary>
+    private static void BuildWeaponWall()
+    {
+        GameObject armeria = new GameObject("Armeria_Pared");
+        // Los modulos Sun_Temple son mucho mas gruesos que la colision invisible:
+        // su cara visible llega hasta x=-13,46, asi que apoyar el panel en la
+        // colision (x=-14,5) lo dejaba DENTRO del muro y no se veia. Tomamos la
+        // cara real del modulo del templo y separamos 2 cm para evitar z-fighting.
+        GameObject referencia = GameObject.Find("Muro_Izq_4");
+        float caraMuro = referencia != null ? BoundsOf(referencia).max.x : -13.456f;
+        armeria.transform.position = new Vector3(caraMuro + 0.14f, 0f, 4f);
+        armeria.transform.rotation = Quaternion.Euler(0f, -90f, 0f);
+        System.Func<Vector3, Vector3> world = armeria.transform.TransformPoint;
+
+        // Panel mas ancho y alto: 11 armas en 3 filas (4 + 4 + 3).
+        // Las piezas se crean en coordenadas del mundo, asi que el ancho del
+        // panel (eje X local) pasa a ser el eje Z del salon al girar el mueble.
+        MakeBox("Armeria_Base", world(new Vector3(0f, 0.18f, 0f)),
+            new Vector3(0.8f, 0.36f, 10.9f), _cover);
+        MakeBox("Armeria_Panel", world(new Vector3(0f, 2.85f, 0f)),
+            new Vector3(0.24f, 4.9f, 10.6f), _sectionA);
+        MakeBox("Armeria_Cabecera", world(new Vector3(0f, 5.42f, -0.03f)),
+            new Vector3(0.34f, 0.22f, 10.9f), _exit);
+        MakeBox("Armeria_Pata_Izq", world(new Vector3(-5.25f, 2.85f, -0.02f)),
+            new Vector3(0.3f, 5.0f, 0.18f), _wall);
+        MakeBox("Armeria_Pata_Der", world(new Vector3(5.25f, 2.85f, -0.02f)),
+            new Vector3(0.3f, 5.0f, 0.18f), _wall);
+
+        // Respaldo: las balas que no den en un arma se quedan en el panel.
+        MakeCollider("Col_Armeria", world(new Vector3(0f, 2.85f, -0.18f)),
+            new Vector3(0.2f, 4.9f, 10.6f));
+
+        float[] rows = { 1.35f, 2.85f, 4.35f };
+        for (int i = 0; i < PackWeapons.Length && i < _packWeapons.Length; i++)
+        {
+            int row = i / 4;
+            int column = i % 4;
+            float x = -3.6f + column * 2.4f;
+            CreateWallWeapon("WallWeapon_" + PackWeapons[i].label.Replace(' ', '_'),
+                armeria.transform, new Vector3(x, rows[row], -0.34f),
+                _packWeapons[i], _weaponArMat, i, PackWeapons[i].label, ViewWeaponScale, false);
+        }
+
+        // La M9 cierra la ultima fila; usa su propio material y escala.
+        int m9Index = PackWeapons.Length;
+        CreateWallWeapon("WallWeapon_M9", armeria.transform, new Vector3(2.4f, rows[2], -0.34f),
+            _m9Asset, _weaponM9Mat, m9Index, "M9 9mm", 0.72f, true);
+    }
+
+    /// <summary>Una arma del muro: modelo importado, collider holgado y disparador.</summary>
+    private static void CreateWallWeapon(string name, Transform parent, Vector3 localPos,
+        GameObject asset, Material material, int index, string label, float size, bool fit)
+    {
+        if (asset == null) return;
+
+        GameObject mount = new GameObject(name);
+        mount.transform.SetParent(parent, false);
+        mount.transform.localPosition = localPos;
+        // De perfil se ve el arma completa; de frente solo se vera la culata.
+        mount.transform.localRotation = Quaternion.Euler(0f, 90f, 0f);
+
+        GameObject model = PrefabUtility.InstantiatePrefab(asset) as GameObject;
+        model.name = name + "_Modelo";
+        model.transform.SetParent(mount.transform, false);
+        if (fit) FitModel(model, size, true);
+        else model.transform.localScale = Vector3.one * size;
+        ApplyWeaponMaterial(model, material);
+        foreach (Collider collider in model.GetComponentsInChildren<Collider>(true))
+            Object.DestroyImmediate(collider);
+        foreach (Renderer renderer in model.GetComponentsInChildren<Renderer>(true))
+            renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+
+        // Centramos la malla en el soporte antes de medir el collider.
+        model.transform.localPosition -= mount.transform.InverseTransformPoint(BoundsOf(model).center);
+
+        // Collider holgado sobre la malla real para acertar sin ser preciso.
+        Bounds bounds = BoundsOf(model);
+        Vector3 worldSize = bounds.size;
+        Vector3 localSize = new Vector3(
+            Mathf.Abs(Vector3.Dot(worldSize, mount.transform.right)),
+            Mathf.Abs(Vector3.Dot(worldSize, mount.transform.up)),
+            Mathf.Abs(Vector3.Dot(worldSize, mount.transform.forward)));
+        BoxCollider hit = mount.AddComponent<BoxCollider>();
+        hit.center = mount.transform.InverseTransformPoint(bounds.center);
+        hit.size = localSize + new Vector3(0.28f, 0.42f, 0.40f);
+
+        WeaponWallSwitch wallSwitch = mount.AddComponent<WeaponWallSwitch>();
+        wallSwitch.weaponIndex = index;
+        wallSwitch.weaponLabel = label;
+        wallSwitch.confirmClip = _hit;
     }
 
     private static GameObject Spawn(GameObject prefab, Vector3 position, float yaw = 0f)
@@ -1428,7 +1686,7 @@ public static class ProjectBuilder
         ai.activationX = 15.5f;
         ai.fireRange = 36f;
         ai.fireInterval = 2.4f;
-        ai.bulletSpeed = 30f;
+        ai.bulletSpeed = 42f;
     }
 
     /// <summary>Bots del templo grande: alcance amplio y confinados a la arena.</summary>
@@ -1442,7 +1700,7 @@ public static class ProjectBuilder
         ai.requiresExitDetection = false;
         ai.fireRange = 52f;
         ai.fireInterval = 2.6f;
-        ai.bulletSpeed = 38f;
+        ai.bulletSpeed = 50f;
     }
 
     /// <summary>Ajusta el soporte para que la diana no quede flotando.</summary>
@@ -1554,8 +1812,10 @@ public static class ProjectBuilder
         };
         foreach (Vector3 p in outside) ConfigureOutdoorBot(Spawn(_botPrefab, p, 180f));
 
-        PlaceCrateCover("Cobertura_Sala_1", new Vector3(-11f, 0f, 2f), new Vector3(3f, 1.6f, 2f), 15f);
-        PlaceCrateCover("Cobertura_Sala_2", new Vector3(11f, 0f, 2f), new Vector3(3f, 1.6f, 2f), -15f);
+        // Se acercan a la entrada para no tapar los interruptores del muro de
+        // armas (antes estaban en z=2 y bloqueaban tres de las once miras).
+        PlaceCrateCover("Cobertura_Sala_1", new Vector3(-11f, 0f, -6f), new Vector3(3f, 1.6f, 2f), 15f);
+        PlaceCrateCover("Cobertura_Sala_2", new Vector3(11f, 0f, -6f), new Vector3(3f, 1.6f, 2f), -15f);
         SetupManager(def);
         SaveCurrentScene("01 Galeria de disparos");
     }
@@ -1645,6 +1905,7 @@ public static class ProjectBuilder
             FirstPersonArms[] arms = Object.FindObjectsByType<FirstPersonArms>();
             MenuController[] menus = Object.FindObjectsByType<MenuController>();
             BotAI[] bots = Object.FindObjectsByType<BotAI>();
+            WeaponWallSwitch[] wallWeapons = Object.FindObjectsByType<WeaponWallSwitch>();
 
             GameObject exitDoor = GameObject.Find("Marco_Salida_Temple");
             int doorColliders = exitDoor == null
@@ -1698,7 +1959,10 @@ public static class ProjectBuilder
                       $"acotados={bounded} detectanSalida={detecting} armados={ranged} " +
                       $"audioDisparo={withAudio} conColision={withController} modulosBoss={bossModules} " +
                       $"puertaCol={doorColliders} dianasVisibles={dianasVisibles} " +
-                      $"templeTexturas={templeTextured}/{templeMaterials}");
+                      $"armasMuro={wallWeapons.Length} templeTexturas={templeTextured}/{templeMaterials}");
+            foreach (WeaponWallSwitch wallWeapon in wallWeapons)
+                Debug.Log($"[VALIDATE]   armaMuro: {wallWeapon.name} slot={wallWeapon.weaponIndex} " +
+                          $"col={(wallWeapon.GetComponent<Collider>() != null)}");
             foreach (Weapon w in weapons)
             {
                 Debug.Log($"[VALIDATE]   arma: bala={(w.bulletPrefab != null)} " +

@@ -27,7 +27,7 @@ public class BotAI : MonoBehaviour
     public float fireRange = 30f;
     public float fireInterval = 2.1f;
     public float fireSpread = 3f;
-    public float bulletSpeed = 32f;
+    public float bulletSpeed = 42f;
 
     [Header("Sonido de disparo")]
     public AudioClip fireClip;
