@@ -23,6 +23,9 @@ public static class ProjectBuilder
     private const string ArmsNormal = "Assets/fp-arms/textures/armNormal.png";
     private const string ArmsRoughness = "Assets/fp-arms/textures/armRoughness.png";
     private const string ArmsOcclusion = "Assets/fp-arms/textures/armAO.png";
+    private const string BulletPlayerModel = "Assets/Low Poly AR Weapon Pack 3/Prefabs/Bullets/Bullet_A.prefab";
+    private const string BulletEnemyModel = "Assets/Low Poly AR Weapon Pack 3/Prefabs/Bullets/Bullet_E.prefab";
+    private const string TempleRoot = "Assets/Sun_Temple/Prefabs/";
 
     private static Material _floor, _wall, _cover, _outdoor, _exit, _targetMat, _bulletMat,
         _enemyBulletMat, _weaponMat, _flashMat, _trailMat, _weaponArMat, _weaponM9Mat,
@@ -34,7 +37,9 @@ public static class ProjectBuilder
         _armsColor, _armsNormal, _armsRoughness, _armsOcclusion;
     private static Font _hudFont;
     private static Texture2D _healthIcon, _ammoIcon, _hitmarkerIcon;
-    private static GameObject _soldierAsset, _armsAsset;
+    private static GameObject _soldierAsset, _armsAsset, _bulletModel, _enemyBulletModel;
+    private static GameObject _pavement, _solidWall, _fullWall, _decoColumn, _doorFrame,
+        _tower, _crate, _barrel, _stone, _bench, _torch;
     private static Avatar _soldierAvatar;
     private static RuntimeAnimatorController _soldierController;
 
@@ -114,6 +119,21 @@ public static class ProjectBuilder
         _armsRoughness = ConfigureLinearTexture(ArmsRoughness);
         _armsOcclusion = ConfigureLinearTexture(ArmsOcclusion);
         _armsAsset = AssetDatabase.LoadAssetAtPath<GameObject>(ArmsModel);
+        _bulletModel = AssetDatabase.LoadAssetAtPath<GameObject>(BulletPlayerModel);
+        _enemyBulletModel = AssetDatabase.LoadAssetAtPath<GameObject>(BulletEnemyModel);
+
+        // Modulos del mapa Sun_Temple usados en las tres escenas.
+        _pavement = TempleAsset("Modules_Structs/Struct_Pavement_A.prefab");
+        _solidWall = TempleAsset("Modules_Temple/Bld_TempleWall_Solid_Mid_A.prefab");
+        _fullWall = TempleAsset("Modules_Structs/Struct_Fullwall_Mid_A.prefab");
+        _decoColumn = TempleAsset("Modules_Common/Bld_Deco_Column_A.prefab");
+        _doorFrame = TempleAsset("Modules_Temple/Bld_Temple_DoorFrame_A.prefab");
+        _tower = TempleAsset("Buildings_Prefabbed/Bld_TempleTower_A.prefab");
+        _crate = TempleAsset("Props/Prop_Crate_A.prefab");
+        _barrel = TempleAsset("Props/Prop_Barrel_A.prefab");
+        _stone = TempleAsset("Natural/Prop_Stone_Med_A.prefab");
+        _bench = TempleAsset("Props/Prop_StoneBench_A.prefab");
+        _torch = TempleAsset("Props/Prop_FireTorch_A.prefab");
 
         // Assets de HUD opcionales: basta con dejarlos en estas carpetas y regenerar.
         _hudFont = LoadFirstAsset<Font>(Root + "/Fonts");
@@ -130,9 +150,16 @@ public static class ProjectBuilder
         Debug.Log($"[ShootingGallery] Soldado personal={( _soldierAsset != null)} " +
                   $"manos={(_armsAsset != null)} avatar={(_soldierAvatar != null)} " +
                   $"sonido={(_gun != null)} recarga={(_reload != null)} " +
+                  $"balas={(_bulletModel != null && _enemyBulletModel != null)} " +
+                  $"temple={(_pavement != null && _solidWall != null && _tower != null)} " +
                   $"texturas={( _arTexture != null && _m9Texture != null)} " +
                   $"hud={( _hudFont != null ? "fuente" : "por defecto")}/" +
                   $"{((_healthIcon != null ? 1 : 0) + (_ammoIcon != null ? 1 : 0) + (_hitmarkerIcon != null ? 1 : 0))}iconos");
+    }
+
+    private static GameObject TempleAsset(string relativePath)
+    {
+        return AssetDatabase.LoadAssetAtPath<GameObject>(TempleRoot + relativePath);
     }
 
     /// <summary>Devuelve el primer asset de un tipo dentro de una carpeta.</summary>
@@ -472,6 +499,23 @@ public static class ProjectBuilder
         return null;
     }
 
+    private static Transform[] CollectFingerBones(Transform wrist)
+    {
+        if (wrist == null) return new Transform[0];
+        System.Collections.Generic.List<Transform> bones = new System.Collections.Generic.List<Transform>();
+        string[] keys = { "finger", "thumb", "index", "middle", "ring", "pinky" };
+        foreach (Transform bone in wrist.GetComponentsInChildren<Transform>(true))
+        {
+            if (bone == wrist) continue;
+            string name = bone.name.ToLowerInvariant();
+            foreach (string key in keys)
+            {
+                if (name.Contains(key)) { bones.Add(bone); break; }
+            }
+        }
+        return bones.ToArray();
+    }
+
     /// <summary>Sustituye los materiales grises del modelo por el material con textura.</summary>
     private static void ApplyWeaponMaterial(GameObject weapon, Material mat)
     {
@@ -496,28 +540,59 @@ public static class ProjectBuilder
         trail.emitting = false;
     }
 
+    /// <summary>
+    /// Crea un proyectil con el modelo importado como hijo visual. El GameObject
+    /// raiz sigue llevando Projectile y TrailRenderer, por lo que los impactos
+    /// barridos no cambian: solo cambia la malla que se ve.
+    /// </summary>
+    private static GameObject CreateBullet(GameObject model, Material fallback,
+        float modelScale, float trailTime, float trailWidth, string name)
+    {
+        GameObject root = new GameObject(name);
+
+        if (model != null)
+        {
+            GameObject visual = PrefabUtility.InstantiatePrefab(model) as GameObject;
+            visual.name = "BulletModel";
+            visual.transform.SetParent(root.transform, false);
+            visual.transform.localPosition = Vector3.zero;
+            visual.transform.localRotation = Quaternion.identity;
+            visual.transform.localScale = Vector3.one * modelScale;
+            foreach (Collider collider in visual.GetComponentsInChildren<Collider>(true))
+                Object.DestroyImmediate(collider);
+            foreach (Renderer renderer in visual.GetComponentsInChildren<Renderer>(true))
+            {
+                renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+                renderer.receiveShadows = false;
+                if (renderer.sharedMaterial == null) renderer.sharedMaterial = fallback;
+            }
+        }
+        else
+        {
+            GameObject fallbackBullet = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+            fallbackBullet.name = "BulletModel";
+            fallbackBullet.transform.SetParent(root.transform, false);
+            fallbackBullet.transform.localScale = Vector3.one * modelScale * 0.12f;
+            SetMaterial(fallbackBullet, fallback);
+            Object.DestroyImmediate(fallbackBullet.GetComponent<Collider>());
+        }
+
+        SetupBulletTrail(root, trailTime, trailWidth);
+        return root;
+    }
+
     private static void CreatePrefabs()
     {
-        // --- Bala del jugador
-        GameObject bullet = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-        bullet.name = "Bullet_Player";
-        bullet.transform.localScale = Vector3.one * 0.13f;
-        SetMaterial(bullet, _bulletMat);
-        Object.DestroyImmediate(bullet.GetComponent<Collider>());
-        SetupBulletTrail(bullet, 0.2f, 0.065f);
+        // --- Bala del jugador (malla importada en vez de una esfera)
+        GameObject bullet = CreateBullet(_bulletModel, _bulletMat, 8f, 0.2f, 0.065f, "Bullet_Player");
         Projectile pb = bullet.AddComponent<Projectile>();
         pb.owner = Projectile.Owner.Player;
         pb.speed = 95f;
         pb.damage = 1;
         _bulletPrefab = SavePrefab(bullet, "Bullet_Player");
 
-        // --- Bala enemiga
-        GameObject eBullet = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-        eBullet.name = "Bullet_Enemy";
-        eBullet.transform.localScale = Vector3.one * 0.22f;
-        SetMaterial(eBullet, _enemyBulletMat);
-        Object.DestroyImmediate(eBullet.GetComponent<Collider>());
-        SetupBulletTrail(eBullet, 0.28f, 0.1f);
+        // --- Bala enemiga (otro modelo del paquete, mas grande y lenta)
+        GameObject eBullet = CreateBullet(_enemyBulletModel, _enemyBulletMat, 10f, 0.28f, 0.1f, "Bullet_Enemy");
         Projectile pe = eBullet.AddComponent<Projectile>();
         pe.owner = Projectile.Owner.Enemy;
         pe.speed = 30f;
@@ -854,6 +929,8 @@ public static class ProjectBuilder
         arms.rightArmBone = rightArmBone;
         arms.rightElbowBone = rightElbowBone;
         arms.rightWristBone = rightWristBone;
+        arms.leftFingerBones = CollectFingerBones(leftWristBone);
+        arms.rightFingerBones = CollectFingerBones(rightWristBone);
 
         _playerPrefab = SavePrefab(root, "Player_FPS");
     }
@@ -892,60 +969,182 @@ public static class ProjectBuilder
         return go;
     }
 
+    /// <summary>Caja que solo colisiona: la vista la dan los prefabs del templo.</summary>
+    private static GameObject MakeCollider(string name, Vector3 pos, Vector3 scale)
+    {
+        GameObject go = MakeBox(name, pos, scale, _wall);
+        Renderer renderer = go.GetComponent<Renderer>();
+        if (renderer != null) renderer.enabled = false;
+        return go;
+    }
+
     private static void AddLight(Vector3 position, float intensity)
     {
         GameObject lightGo = new GameObject("Luz");
         Light light = lightGo.AddComponent<Light>();
         light.type = LightType.Directional;
         light.intensity = intensity;
+        light.color = new Color(1f, 0.91f, 0.76f);
         lightGo.transform.position = position;
         lightGo.transform.rotation = Quaternion.Euler(48f, -28f, 0f);
+        RenderSettings.ambientLight = new Color(0.48f, 0.46f, 0.40f);
+    }
+
+    /// <summary>Instancia un modulo de Sun_Temple solo como decoracion.</summary>
+    private static GameObject PlaceTemple(GameObject prefab, string name, Vector3 pos,
+        float yaw = 0f, Vector3? scale = null)
+    {
+        if (prefab == null) return null;
+        GameObject go = PrefabUtility.InstantiatePrefab(prefab) as GameObject;
+        go.name = name;
+        go.transform.position = pos;
+        go.transform.rotation = Quaternion.Euler(0f, yaw, 0f);
+        if (scale.HasValue) go.transform.localScale = scale.Value;
+        foreach (Collider collider in go.GetComponentsInChildren<Collider>(true))
+            Object.DestroyImmediate(collider);
+        return go;
+    }
+
+    private static void TilePavement(float minX, float maxX, float minZ, float maxZ, string prefix)
+    {
+        if (_pavement == null) return;
+        int columns = Mathf.Max(1, Mathf.RoundToInt((maxX - minX) / 10f));
+        int rows = Mathf.Max(1, Mathf.RoundToInt((maxZ - minZ) / 10f));
+        for (int x = 0; x < columns; x++)
+        {
+            for (int z = 0; z < rows; z++)
+            {
+                Vector3 pos = new Vector3(minX + 5f + x * 10f, -0.01f, minZ + 5f + z * 10f);
+                PlaceTemple(_pavement, $"{prefix}_{x}_{z}", pos);
+            }
+        }
+    }
+
+    /// <summary>Muro decorativo del templo; las colisiones las ponen los MakeCollider.</summary>
+    private static void PlaceWall(string name, GameObject prefab, Vector3 pos, float yaw, Vector3 scale)
+    {
+        PlaceTemple(prefab, name, pos, yaw, scale);
+    }
+
+    /// <summary>Cobertura importada con su colision invisible del tamano de juego.</summary>
+    private static void PlaceCrateCover(string name, Vector3 pos, Vector3 size, float yaw = 0f)
+    {
+        MakeCollider("Col_" + name, new Vector3(pos.x, size.y * 0.5f, pos.z), size);
+        PlaceTemple(_crate, name + "_Caja", new Vector3(pos.x - size.x * 0.22f, 0f, pos.z + size.z * 0.18f),
+            yaw, new Vector3(size.x * 0.58f, size.y, size.z * 0.62f));
+        PlaceTemple(_barrel, name + "_Barril", new Vector3(pos.x + size.x * 0.24f, 0f, pos.z - size.z * 0.20f),
+            yaw + 35f, new Vector3(size.x * 0.7f, size.y * 0.95f, size.z * 0.7f));
+    }
+
+    private static void PlaceTempleDecor(Vector3 center, float halfWidth, float halfDepth)
+    {
+        PlaceTemple(_stone, "Piedra_Deco", new Vector3(center.x - halfWidth * 0.7f, 0f, center.z - halfDepth * 0.6f),
+            24f, Vector3.one * 1.2f);
+        PlaceTemple(_stone, "Piedra_Deco_2", new Vector3(center.x + halfWidth * 0.7f, 0f, center.z + halfDepth * 0.5f),
+            -18f, Vector3.one * 0.9f);
+        PlaceTemple(_bench, "Banco_Deco", new Vector3(center.x - halfWidth * 0.5f, 0f, center.z + halfDepth * 0.45f), 90f);
+        PlaceTemple(_torch, "Antorcha_Deco", new Vector3(center.x + halfWidth * 0.6f, 0f, center.z - halfDepth * 0.5f));
     }
 
     /// <summary>Recinto cerrado usado por los niveles 2 y 3.</summary>
     private static void BuildArena()
     {
-        MakeBox("Suelo", new Vector3(0f, -0.5f, 12f), new Vector3(46f, 1f, 80f), _floor);
-        MakeBox("Pared_izquierda", new Vector3(-22f, 3f, 12f), new Vector3(1f, 6f, 80f), _wall);
-        MakeBox("Pared_derecha", new Vector3(22f, 3f, 12f), new Vector3(1f, 6f, 80f), _wall);
-        MakeBox("Pared_fondo", new Vector3(0f, 3f, 51f), new Vector3(45f, 6f, 1f), _wall);
-        MakeBox("Pared_inicio", new Vector3(0f, 3f, -27f), new Vector3(45f, 6f, 1f), _wall);
+        TilePavement(-22f, 22f, -27f, 51f, "Arena_Pavimento");
+
+        MakeCollider("Col_Suelo", new Vector3(0f, -0.5f, 12f), new Vector3(46f, 1f, 80f));
+        MakeCollider("Col_Pared_izquierda", new Vector3(-22f, 3f, 12f), new Vector3(1f, 6f, 80f));
+        MakeCollider("Col_Pared_derecha", new Vector3(22f, 3f, 12f), new Vector3(1f, 6f, 80f));
+        MakeCollider("Col_Pared_fondo", new Vector3(0f, 3f, 51f), new Vector3(45f, 6f, 1f));
+        MakeCollider("Col_Pared_inicio", new Vector3(0f, 3f, -27f), new Vector3(45f, 6f, 1f));
+
+        Vector3 wallScale = new Vector3(1f, 0.5f, 0.5f);
+        for (float x = -22f; x <= 18f; x += 10f)
+        {
+            PlaceWall("Muro_Temple_Fondo_" + x, _solidWall, new Vector3(x, 0f, 51f), 0f, wallScale);
+            PlaceWall("Muro_Temple_Inicio_" + x, _solidWall, new Vector3(x, 0f, -27f), 0f, wallScale);
+        }
+        for (float z = -17f; z <= 53f; z += 10f)
+        {
+            PlaceWall("Muro_Temple_Izq_" + z, _solidWall, new Vector3(-22f, 0f, z), 90f, wallScale);
+            PlaceWall("Muro_Temple_Der_" + z, _solidWall, new Vector3(22f, 0f, z), 90f, wallScale);
+        }
+
+        float[] columnZ = { -12f, 0f, 14f, 28f, 42f };
+        foreach (float z in columnZ)
+        {
+            PlaceTemple(_decoColumn, "Columna_Izq_" + z, new Vector3(-19.5f, 0f, z), 0f, Vector3.one * 0.62f);
+            PlaceTemple(_decoColumn, "Columna_Der_" + z, new Vector3(19.5f, 0f, z), 0f, Vector3.one * 0.62f);
+        }
+        PlaceTemple(_tower, "Torre_Temple_Izq", new Vector3(-30f, 0f, 48f), 25f, Vector3.one * 0.45f);
+        PlaceTemple(_tower, "Torre_Temple_Der", new Vector3(30f, 0f, 48f), -25f, Vector3.one * 0.45f);
+        PlaceTempleDecor(Vector3.zero, 22f, 39f);
         AddLight(Vector3.zero, 1.15f);
-        RenderSettings.ambientLight = new Color(0.42f, 0.44f, 0.5f);
     }
 
     /// <summary>
-    /// Nivel 1: sala de tiro cerrada con una salida lateral al campo exterior,
-    /// donde los enemigos estan repartidos.
+    /// Nivel 1: sala de tiro del templo con salida lateral al campo exterior.
     /// </summary>
     private static void BuildGalleryWorld()
     {
-        // --- Sala interior
-        MakeBox("Suelo_Galeria", new Vector3(0f, -0.5f, 0f), new Vector3(30f, 1f, 32f), _floor);
+        TilePavement(-15f, 15f, -16f, 16f, "Galeria_Pavimento");
+        TilePavement(14f, 70f, -40f, 40f, "Exterior_Pavimento");
+
+        // --- Colisiones (invisibles) exactamente donde estaban los muros viejos
+        MakeCollider("Col_Suelo_Galeria", new Vector3(0f, -0.5f, 0f), new Vector3(30f, 1f, 32f));
         MakeBox("Techo_Galeria", new Vector3(0f, 6.2f, 0f), new Vector3(30f, 0.4f, 32f), _wall);
-        MakeBox("Pared_Entrada", new Vector3(0f, 3f, -16f), new Vector3(30f, 6f, 1f), _wall);
-        MakeBox("Pared_Dianas", new Vector3(0f, 3f, 16f), new Vector3(30f, 6f, 1f), _wall);
-        MakeBox("Pared_Izquierda", new Vector3(-15f, 3f, 0f), new Vector3(1f, 6f, 32f), _wall);
-        // Pared derecha con hueco de salida entre z=-4 y z=2.
-        MakeBox("Pared_Derecha_A", new Vector3(15f, 3f, -10f), new Vector3(1f, 6f, 12f), _wall);
-        MakeBox("Pared_Derecha_B", new Vector3(15f, 3f, 9f), new Vector3(1f, 6f, 14f), _wall);
-        MakeBox("Marco_Salida", new Vector3(15f, 5.8f, -1f), new Vector3(1.3f, 0.5f, 6.6f), _exit);
+        MakeCollider("Col_Pared_Entrada", new Vector3(0f, 3f, -16f), new Vector3(30f, 6f, 1f));
+        MakeCollider("Col_Pared_Dianas", new Vector3(0f, 3f, 16f), new Vector3(30f, 6f, 1f));
+        MakeCollider("Col_Pared_Izquierda", new Vector3(-15f, 3f, 0f), new Vector3(1f, 6f, 32f));
+        MakeCollider("Col_Pared_Derecha_A", new Vector3(15f, 3f, -10f), new Vector3(1f, 6f, 12f));
+        MakeCollider("Col_Pared_Derecha_B", new Vector3(15f, 3f, 9f), new Vector3(1f, 6f, 14f));
         MakeBox("Suelo_Salida", new Vector3(16f, -0.48f, -1f), new Vector3(3f, 0.06f, 6f), _exit);
 
-        // --- Campo exterior
-        MakeBox("Suelo_Exterior", new Vector3(42f, -0.5f, 0f), new Vector3(56f, 1f, 80f), _outdoor);
-        MakeBox("Cierre_Sur", new Vector3(15f, 3f, -28f), new Vector3(1f, 6f, 24f), _wall);
-        MakeBox("Cierre_Norte", new Vector3(15f, 3f, 28f), new Vector3(1f, 6f, 24f), _wall);
-        MakeBox("Valla_Fondo", new Vector3(70f, 3f, 0f), new Vector3(1f, 6f, 80f), _wall);
-        MakeBox("Valla_Sur", new Vector3(42f, 3f, -40f), new Vector3(56f, 6f, 1f), _wall);
-        MakeBox("Valla_Norte", new Vector3(42f, 3f, 40f), new Vector3(56f, 6f, 1f), _wall);
+        MakeCollider("Col_Suelo_Exterior", new Vector3(42f, -0.5f, 0f), new Vector3(56f, 1f, 80f));
+        MakeCollider("Col_Cierre_Sur", new Vector3(15f, 3f, -28f), new Vector3(1f, 6f, 24f));
+        MakeCollider("Col_Cierre_Norte", new Vector3(15f, 3f, 28f), new Vector3(1f, 6f, 24f));
+        MakeCollider("Col_Valla_Fondo", new Vector3(70f, 3f, 0f), new Vector3(1f, 6f, 80f));
+        MakeCollider("Col_Valla_Sur", new Vector3(42f, 3f, -40f), new Vector3(56f, 6f, 1f));
+        MakeCollider("Col_Valla_Norte", new Vector3(42f, 3f, 40f), new Vector3(56f, 6f, 1f));
 
-        MakeBox("Cobertura_Ext_1", new Vector3(28f, 1f, 9f), new Vector3(4f, 2f, 3f), _cover);
-        MakeBox("Cobertura_Ext_2", new Vector3(38f, 1f, -10f), new Vector3(5f, 2f, 3f), _cover);
-        MakeBox("Cobertura_Ext_3", new Vector3(52f, 1f, 6f), new Vector3(4f, 2f, 4f), _cover);
+        // --- Muros y columnas visibles del templo
+        Vector3 wallScale = new Vector3(1f, 0.5f, 0.5f);
+        for (float x = -15f; x <= 5f; x += 10f)
+        {
+            PlaceWall("Muro_Dianas_" + x, _solidWall, new Vector3(x, 0f, 16f), 0f, wallScale);
+            PlaceWall("Muro_Entrada_" + x, _solidWall, new Vector3(x, 0f, -16f), 0f, wallScale);
+        }
+        for (float z = -16f; z <= 14f; z += 10f)
+            PlaceWall("Muro_Izq_" + z, _solidWall, new Vector3(-15f, 0f, z), 90f, wallScale);
+        for (float z = -14f; z <= -4f; z += 10f)
+            PlaceWall("Muro_Der_A_" + z, _solidWall, new Vector3(15f, 0f, z), 90f, wallScale);
+        for (float z = 12f; z <= 22f; z += 10f)
+            PlaceWall("Muro_Der_B_" + z, _solidWall, new Vector3(15f, 0f, z), 90f, wallScale);
 
+        PlaceTemple(_doorFrame, "Marco_Salida_Temple", new Vector3(14.9f, 0f, -1f), 0f,
+            new Vector3(1f, 0.75f, 1.8f));
+        PlaceTemple(_decoColumn, "Columna_Sala_Izq", new Vector3(-12f, 0f, -12f), 0f, Vector3.one * 0.62f);
+        PlaceTemple(_decoColumn, "Columna_Sala_Der", new Vector3(12f, 0f, -12f), 0f, Vector3.one * 0.62f);
+        PlaceTemple(_decoColumn, "Columna_Dianas_Izq", new Vector3(-12f, 0f, 13f), 0f, Vector3.one * 0.62f);
+        PlaceTemple(_decoColumn, "Columna_Dianas_Der", new Vector3(12f, 0f, 13f), 0f, Vector3.one * 0.62f);
+
+        for (float z = -30f; z <= 30f; z += 10f)
+        {
+            PlaceWall("Cierre_Temple_Sur_" + z, _solidWall, new Vector3(15f, 0f, z), 90f, wallScale);
+            PlaceWall("Cierre_Temple_Norte_" + z, _solidWall, new Vector3(70f, 0f, z), 90f, wallScale);
+        }
+        for (float x = 22f; x <= 62f; x += 10f)
+        {
+            PlaceWall("Valla_Temple_Sur_" + x, _solidWall, new Vector3(x, 0f, -40f), 0f, wallScale);
+            PlaceWall("Valla_Temple_Norte_" + x, _solidWall, new Vector3(x, 0f, 40f), 0f, wallScale);
+        }
+        PlaceTemple(_tower, "Torre_Exterior_A", new Vector3(66f, 0f, -34f), -35f, Vector3.one * 0.42f);
+        PlaceTemple(_tower, "Torre_Exterior_B", new Vector3(66f, 0f, 34f), 35f, Vector3.one * 0.42f);
+
+        PlaceCrateCover("Cobertura_Ext_1", new Vector3(28f, 0f, 9f), new Vector3(4f, 2f, 3f), 12f);
+        PlaceCrateCover("Cobertura_Ext_2", new Vector3(38f, 0f, -10f), new Vector3(5f, 2f, 3f), -20f);
+        PlaceCrateCover("Cobertura_Ext_3", new Vector3(52f, 0f, 6f), new Vector3(4f, 2f, 4f), 35f);
+        PlaceTempleDecor(new Vector3(42f, 0f, 0f), 28f, 40f);
         AddLight(Vector3.zero, 1.2f);
-        RenderSettings.ambientLight = new Color(0.45f, 0.47f, 0.52f);
     }
 
     private static GameObject Spawn(GameObject prefab, Vector3 position, float yaw = 0f)
@@ -1051,8 +1250,8 @@ public static class ProjectBuilder
         };
         foreach (Vector3 p in outside) ConfigureOutdoorBot(Spawn(_botPrefab, p, 180f));
 
-        MakeBox("Cobertura_Sala_1", new Vector3(-11f, 0.8f, 2f), new Vector3(3f, 1.6f, 2f), _cover);
-        MakeBox("Cobertura_Sala_2", new Vector3(11f, 0.8f, 2f), new Vector3(3f, 1.6f, 2f), _cover);
+        PlaceCrateCover("Cobertura_Sala_1", new Vector3(-11f, 0f, 2f), new Vector3(3f, 1.6f, 2f), 15f);
+        PlaceCrateCover("Cobertura_Sala_2", new Vector3(11f, 0f, 2f), new Vector3(3f, 1.6f, 2f), -15f);
         SetupManager(def);
         SaveCurrentScene("01 Galeria de disparos");
     }
@@ -1073,9 +1272,9 @@ public static class ProjectBuilder
         AdjustStand(Spawn(_targetPrefab, new Vector3(-12f, 2.6f, 30f), 180f));
         AdjustStand(Spawn(_targetPrefab, new Vector3(12f, 2.6f, 30f), 180f));
 
-        MakeBox("Caja_1", new Vector3(-6f, 1f, 4f), new Vector3(4f, 2f, 3f), _cover);
-        MakeBox("Caja_2", new Vector3(7f, 1f, 12f), new Vector3(4f, 2f, 3f), _cover);
-        MakeBox("Caja_3", new Vector3(-2f, 1f, 22f), new Vector3(5f, 2f, 3f), _cover);
+        PlaceCrateCover("Caja_1", new Vector3(-6f, 0f, 4f), new Vector3(4f, 2f, 3f), 10f);
+        PlaceCrateCover("Caja_2", new Vector3(7f, 0f, 12f), new Vector3(4f, 2f, 3f), -20f);
+        PlaceCrateCover("Caja_3", new Vector3(-2f, 0f, 22f), new Vector3(5f, 2f, 3f), 30f);
         SetupManager(def);
         SaveCurrentScene("02 Bots");
     }
@@ -1091,8 +1290,8 @@ public static class ProjectBuilder
         Spawn(_botPrefab, new Vector3(0f, 0f, 8f), 180f);
         AdjustStand(Spawn(_targetPrefab, new Vector3(-13f, 2.8f, 32f), 180f));
         AdjustStand(Spawn(_targetPrefab, new Vector3(13f, 2.8f, 32f), 180f));
-        MakeBox("Cobertura_1", new Vector3(-9f, 1f, 4f), new Vector3(4f, 2f, 3f), _cover);
-        MakeBox("Cobertura_2", new Vector3(9f, 1f, 4f), new Vector3(4f, 2f, 3f), _cover);
+        PlaceCrateCover("Cobertura_1", new Vector3(-9f, 0f, 4f), new Vector3(4f, 2f, 3f), -12f);
+        PlaceCrateCover("Cobertura_2", new Vector3(9f, 0f, 4f), new Vector3(4f, 2f, 3f), 12f);
         SetupManager(def);
         SaveCurrentScene("03 Jefe Final");
     }
@@ -1154,6 +1353,7 @@ public static class ProjectBuilder
             foreach (Weapon w in weapons)
             {
                 Debug.Log($"[VALIDATE]   arma: bala={(w.bulletPrefab != null)} " +
+                          $"modeloBala={(w.bulletPrefab != null && w.bulletPrefab.transform.Find("BulletModel") != null)} " +
                           $"fogonazo={(w.muzzleFlashPrefab != null)} recarga={(w.reloadClip != null)} " +
                           $"audio2D={(w.sfxSource != null)} pivote={(w.weaponPivot != null)} " +
                           $"camara={(w.aimCamera != null)} slots={(w.slots == null ? 0 : w.slots.Length)}");
@@ -1168,6 +1368,7 @@ public static class ProjectBuilder
                 Debug.Log($"[VALIDATE]   brazos: modelo={(a.handsRoot != null)} " +
                           $"huesos={(a.leftArmBone != null && a.rightArmBone != null)} " +
                           $"procedurales={(a.rightForearm != null && a.leftForearm != null)} " +
+                          $"dedos={((a.leftFingerBones == null ? 0 : a.leftFingerBones.Length) + (a.rightFingerBones == null ? 0 : a.rightFingerBones.Length))} " +
                           $"cargador={(a.magazineProp != null)} arma={(a.weapon != null)}");
             }
             foreach (GameManager gm in managers)

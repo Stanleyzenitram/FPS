@@ -6,6 +6,11 @@ Unity 6000.6.2f1 - URP - Input System
 1. QUE SE HA HECHO
 ------------------------------------------------------------------------
 FPS militar con menu de inicio/final, arsenal con recarga y tres niveles.
+Los escenarios usan MODULOS DE Sun_Temple (pavimento, muros, columnas,
+marco de puerta, torres, cajas, barriles y rocas). Las colisiones siguen
+siendo cajas invisibles generadas por codigo para no cambiar la jugabilidad.
+Ademas se corrigieron dos scripts de editor del paquete Sun_Temple que
+usaban APIs anticuadas y no dejaban compilar en Unity 6.
 Los enemigos usan TU ASSET PERSONAL de soldado:
   Assets/LowPolySoldiers_demo/Soldier_demo_Prefab.prefab
   (modelo Soldier_demo.FBX + animaciones demo_combat_idle / run / shoot)
@@ -90,8 +95,13 @@ a generar el proyecto.
   con la textura Tex_0009_1.jpg aplicada a todas sus mallas.
   Se conserva la rotación original del FBX (270 grados en X) y solo se
   añade un giro de -8 grados en Y: antes la pistola apuntaba al suelo.
-- Cada bala lleva una estela (TrailRenderer) dorada si la disparas tu y
-  roja si la dispara un enemigo, para que se vea la trayectoria.
+- Las balas ya NO son esferas: usan los modelos importados de la carpeta
+  "Low Poly AR Weapon Pack 3/Prefabs/Bullets" (Bullet_A para el jugador y
+  Bullet_E para los enemigos), escalados para que se vean en pantalla.
+  Cada bala lleva una estela (TrailRenderer) dorada si la disparas tu y
+  roja si la dispara un enemigo, para que se vea la trayectoria. El modelo
+  es solo visual: el impacto sigue siendo un Raycast barrido del GameObject
+  raiz, asi que no atraviesa objetivos ni bloquea los disparos.
 - Sonido de disparo: Assets/Audio/FSX/Gunfire.wav (el que ya tenias).
 - El audio ya no depende de un AudioSource 3D temporal: el jugador y el
   GameManager tienen una fuente 2D (spatialBlend=0) que reproduce los
@@ -113,10 +123,13 @@ a generar el proyecto.
   estuviera disponible, quedan unos brazos procedurales de respaldo (manga
   camuflada y guantes) con el mismo comportamiento. El modelo no tiene
   collider ni proyecta sombra, asi que no bloquea los disparos.
-- Recarga animada: al pulsar R (o al querer disparar con el cargador vacio)
-  el arma baja y gira, la mano izquierda va al cargador, aparece un
-  cargador que cae y vuelve a entrar, y todo vuelve a la pose al terminar.
-  La bala se sigue contabilizando al final de la animacion, como antes.
+- Recarga animada por fases: al pulsar R (o al querer disparar con el
+  cargador vacio) el arma baja y se gira, la mano izquierda alcanza el
+  cargador, los dedos se cierran, el cargador se extrae y se muestra, se
+  vuelve a insertar con un pequeno golpe y el arma se asienta antes de
+  poder disparar. La derecha acompana el giro del arma. Hay un hueco
+  opcional para un sonido de insercion (reloadInsertClip). La bala se
+  sigue contabilizando al final de la animacion, como antes.
 
 5. COMO ABRIRLO
 ------------------------------------------------------------------------
@@ -152,7 +165,11 @@ Tools/generate_placeholders.py regenera texturas y efectos de sonido.
 ------------------------------------------------------------------------
 - Input System nuevo (el proyecto ya lo tenia activo).
 - Proyectiles GameObjects con Raycast barrido: no atraviesan objetivos
-  aunque vayan rapido y no necesitan Rigidbody.
+  aunque vayan rapido y no necesitan Rigidbody. La malla importada se
+  añade como hijo visual, separada de la fisica.
+- Los prefabs decorativos de Sun_Temple se instancian sin collider; las
+  paredes y coberturas que detienen balas son cajas invisibles. Asi se
+  puede cambiar el aspecto del mapa sin alterar las rutas de los bots.
 - Cada objetivo tiene Target (tipo, puntos y vida). Bala y objetivo se
   destruyen a la vez en Target.TakeHit.
 - Los bots persiguen en linea recta (sin NavMesh). En el nivel 1 se
@@ -167,7 +184,11 @@ Tools/generate_placeholders.py regenera texturas y efectos de sonido.
 8. ENTREGA
 ------------------------------------------------------------------------
 GitHub: haz commit y push de Assets/ShootingGallery/ y Tools/. No subas
-Library/, Temp/, Logs/ ni Builds/ (estan en .gitignore).
+Library/, Temp/, Logs/ ni Builds/ (estan en .gitignore). La carpeta
+Assets/Sun_Temple/ pesa casi 2 GB y por ahora queda fuera del commit:
+copiala tambien al clonar, o incluyla solo si tu cuenta permite repos
+grandes. Sin esa carpeta las escenas se generan con colisiones pero sin
+la decoracion del templo.
 Itch.io: comprime Builds/Windows en ZIP y subelo como Downloadable game
 > Windows.
 

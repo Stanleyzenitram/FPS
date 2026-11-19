@@ -37,6 +37,7 @@ public class Weapon : MonoBehaviour
     public GameObject bulletPrefab;
     public GameObject muzzleFlashPrefab;
     public AudioClip reloadClip;
+    public AudioClip reloadInsertClip;
     public AudioSource sfxSource;
 
     [Header("Mira ADS")]
@@ -52,6 +53,7 @@ public class Weapon : MonoBehaviour
     private float _reloadTimer;
     private float _recoil;
     private float _lastKick;
+    private bool _insertSfxPlayed;
     private Vector3 _pivotBasePosition;
     private Quaternion _pivotBaseRotation;
 
@@ -67,6 +69,24 @@ public class Weapon : MonoBehaviour
     public bool IsReloading => _reloadTimer > 0f;
     public float ReloadProgress => IsReloading && slots[_current] != null
         ? 1f - (_reloadTimer / Mathf.Max(0.01f, slots[_current].reloadTime)) : 1f;
+
+    // Fases de una recarga realista: bajar el arma, alcanzar el cargador,
+    // extraerlo, insertarlo y asentar el arma antes de volver a disparar.
+    public float ReloadDip => ReloadPulse(0.02f, 0.22f, 0.76f, 0.98f);
+    public float ReloadReach => ReloadPulse(0.06f, 0.26f, 0.68f, 0.90f);
+    public float ReloadPull => ReloadPulse(0.22f, 0.38f, 0.60f, 0.78f);
+    public float ReloadInsert => ReloadPulse(0.58f, 0.72f, 0.84f, 0.96f);
+    public float ReloadSettle => IsReloading
+        ? Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0.86f, 1f, ReloadProgress)) : 1f;
+
+    private float ReloadPulse(float inStart, float inEnd, float outStart, float outEnd)
+    {
+        if (!IsReloading) return 0f;
+        float p = ReloadProgress;
+        float enter = Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(inStart, inEnd, p));
+        float exit = Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(outStart, outEnd, p));
+        return enter * (1f - exit);
+    }
 
     public int TotalAmmo
     {
@@ -139,10 +159,19 @@ public class Weapon : MonoBehaviour
         float kick = slot != null ? slot.recoilKick : 0.06f;
         float pitch = slot != null ? slot.recoilPitch : 2f;
 
-        // La recarga baja y gira el arma; el pico está a mitad de la animación.
-        float reloadEase = IsReloading ? Mathf.Sin(Mathf.Clamp01(ReloadProgress) * Mathf.PI) : 0f;
-        Vector3 reloadOffset = new Vector3(0.05f, -0.16f, -0.07f) * reloadEase;
-        Quaternion reloadRotation = Quaternion.Euler(11f * reloadEase, 14f * reloadEase, -16f * reloadEase);
+        // Recarga por fases: el arma baja, se gira para ver el cargador,
+        // se extrae, se inserta y vuelve a su pose de combate.
+        float dip = ReloadDip;
+        float pull = ReloadPull;
+        float insert = ReloadInsert;
+        Vector3 reloadOffset = new Vector3(
+            0.05f * dip + 0.03f * pull,
+            -0.20f * dip - 0.03f * pull,
+            -0.08f * dip);
+        Quaternion reloadRotation = Quaternion.Euler(
+            13f * dip + 7f * pull,
+            12f * dip + 16f * pull,
+            -20f * dip - 8f * pull + 5f * insert);
 
         Vector3 restPose = Vector3.Lerp(pivot.localPosition - Vector3.back * (_lastKick),
             _pivotBasePosition + ads + reloadOffset, 15f * dt);
@@ -157,6 +186,11 @@ public class Weapon : MonoBehaviour
         if (_reloadTimer > 0f)
         {
             _reloadTimer -= dt;
+            if (!_insertSfxPlayed && IsReloading && ReloadProgress >= 0.72f && reloadInsertClip != null)
+            {
+                _insertSfxPlayed = true;
+                PlaySfx(reloadInsertClip, 0.55f);
+            }
             if (_reloadTimer <= 0f) FinishReload();
         }
 
@@ -205,6 +239,7 @@ public class Weapon : MonoBehaviour
         if (slots[index] == null) return;
         _current = index;
         _reloadTimer = 0f;
+        _insertSfxPlayed = false;
         for (int i = 0; i < slots.Length; i++)
             if (slots[i] != null && slots[i].model != null)
                 slots[i].model.SetActive(i == index);
@@ -218,6 +253,7 @@ public class Weapon : MonoBehaviour
         if (slot == null || slot.magazine >= slot.magazineSize || slot.reserve <= 0) return;
 
         _reloadTimer = slot.reloadTime;
+        _insertSfxPlayed = false;
         PlaySfx(reloadClip, 0.7f);
     }
 
