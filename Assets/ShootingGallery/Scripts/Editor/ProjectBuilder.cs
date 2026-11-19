@@ -30,7 +30,7 @@ public static class ProjectBuilder
 
     private static Material _floor, _wall, _cover, _outdoor, _exit, _targetMat, _bulletMat,
         _enemyBulletMat, _weaponMat, _flashMat, _trailMat, _weaponArMat, _weaponM9Mat,
-        _sleeveMat, _gloveMat, _armsMat;
+        _sleeveMat, _gloveMat, _armsMat, _sectionA, _sectionB, _sectionC;
     private static GameObject _playerPrefab, _targetPrefab, _botPrefab, _bossPrefab,
         _bulletPrefab, _enemyBulletPrefab, _managerPrefab, _muzzleFlashPrefab;
     private static AudioClip _gun, _hit, _hurt, _win, _lose, _reload;
@@ -55,7 +55,7 @@ public static class ProjectBuilder
         CreatePrefabs();
 
         LevelDefinition gallery = CreateLevel("01 Galeria", "01 Galería de disparos",
-            "01 Galeria de disparos", "02 Bots", 14, 42, 10, 5, false);
+            "01 Galeria de disparos", "02 Bots", 14, 42, 12, 5, false);
         LevelDefinition bots = CreateLevel("02 Bots", "02 Modo contra bots",
             "02 Bots", "03 Jefe Final", 20, 60, 2, 5, false);
         LevelDefinition boss = CreateLevel("03 Jefe", "03 Jefe final",
@@ -322,6 +322,9 @@ public static class ProjectBuilder
         _cover = MakeMaterial("Cover", new Color(0.34f, 0.33f, 0.28f));
         _outdoor = MakeMaterial("Outdoor", new Color(0.22f, 0.30f, 0.20f));
         _exit = MakeMaterial("Exit", new Color(0.18f, 0.75f, 0.32f));
+        _sectionA = MakeMaterial("Section_Alfa", new Color(0.16f, 0.34f, 0.50f));
+        _sectionB = MakeMaterial("Section_Bravo", new Color(0.44f, 0.30f, 0.16f));
+        _sectionC = MakeMaterial("Section_Charlie", new Color(0.20f, 0.42f, 0.28f));
         _targetMat = MakeTexturedMaterial("Target_Bullseye", Color.white, targetTex);
         _bulletMat = MakeMaterial("Bullet", new Color(1f, 0.85f, 0.25f));
         _enemyBulletMat = MakeMaterial("EnemyBullet", new Color(1f, 0.25f, 0.15f));
@@ -1034,6 +1037,15 @@ public static class ProjectBuilder
         return go;
     }
 
+    /// <summary>Panel decorativo que no debe detener balas: ya hay una pared detras.</summary>
+    private static GameObject MakeVisualBox(string name, Vector3 pos, Vector3 scale, Material mat)
+    {
+        GameObject go = MakeBox(name, pos, scale, mat);
+        Collider collider = go.GetComponent<Collider>();
+        if (collider != null) Object.DestroyImmediate(collider);
+        return go;
+    }
+
     private static void AddLight(Vector3 position, float intensity)
     {
         GameObject lightGo = new GameObject("Luz");
@@ -1059,6 +1071,30 @@ public static class ProjectBuilder
         foreach (Collider collider in go.GetComponentsInChildren<Collider>(true))
             Object.DestroyImmediate(collider);
         return go;
+    }
+
+    /// <summary>
+    /// Marco de la salida: gira 90 grados para quedar en el muro lateral y
+    /// recupera colision en jambas y dintel. El hueco central sigue pasable.
+    /// </summary>
+    private static void PlaceExitDoor()
+    {
+        const float x = 14.9f;
+        const float z = -1f;
+        GameObject door = PlaceTemple(_doorFrame, "Marco_Salida_Temple",
+            new Vector3(x, 0f, z), 90f, new Vector3(1f, 0.75f, 1.8f));
+        if (door == null) return;
+
+        GameObject jambSur = MakeCollider("Col_Marco_Salida_Jamb_Sur",
+            new Vector3(x, 2.5f, z - 1.4f), new Vector3(0.62f, 5f, 0.4f));
+        GameObject jambNorte = MakeCollider("Col_Marco_Salida_Jamb_Norte",
+            new Vector3(x, 2.5f, z + 1.4f), new Vector3(0.62f, 5f, 0.4f));
+        GameObject dintel = MakeCollider("Col_Marco_Salida_Dintel",
+            new Vector3(x, 5.45f, z), new Vector3(0.62f, 0.5f, 3.2f));
+
+        jambSur.transform.SetParent(door.transform, true);
+        jambNorte.transform.SetParent(door.transform, true);
+        dintel.transform.SetParent(door.transform, true);
     }
 
     private static void TilePavement(float minX, float maxX, float minZ, float maxZ, string prefix)
@@ -1176,8 +1212,7 @@ public static class ProjectBuilder
         for (float z = 12f; z <= 22f; z += 10f)
             PlaceWall("Muro_Der_B_" + z, _solidWall, new Vector3(15f, 0f, z), 90f, wallScale);
 
-        PlaceTemple(_doorFrame, "Marco_Salida_Temple", new Vector3(14.9f, 0f, -1f), 0f,
-            new Vector3(1f, 0.75f, 1.8f));
+        PlaceExitDoor();
         PlaceTemple(_decoColumn, "Columna_Sala_Izq", new Vector3(-12f, 0f, -12f), 0f, Vector3.one * 0.62f);
         PlaceTemple(_decoColumn, "Columna_Sala_Der", new Vector3(12f, 0f, -12f), 0f, Vector3.one * 0.62f);
         PlaceTemple(_decoColumn, "Columna_Dianas_Izq", new Vector3(-12f, 0f, 13f), 0f, Vector3.one * 0.62f);
@@ -1241,6 +1276,44 @@ public static class ProjectBuilder
         stand.localPosition = new Vector3(0f, -height * 0.5f, 0f);
     }
 
+    /// <summary>
+    /// Galeria tipo circuito: tres secciones (A, B y C) con panel propio,
+    /// separadores de piedra y cuatro dianas por seccion a dos alturas.
+    /// Las dianas van delante del modulo de muro, que tiene 1,54 m de grosor.
+    /// </summary>
+    private static void BuildGalleryTargets()
+    {
+        float[] centers = { -9f, 0f, 9f };
+        Material[] materials = { _sectionA, _sectionB, _sectionC };
+
+        for (int section = 0; section < centers.Length; section++)
+        {
+            float x = centers[section];
+            char letter = (char)('A' + section);
+
+            MakeVisualBox("Panel_Seccion_" + letter,
+                new Vector3(x, 3.1f, 14.38f), new Vector3(7f, 5.2f, 0.12f), materials[section]);
+            MakeVisualBox("Linea_Seccion_" + letter,
+                new Vector3(x, 0.04f, 8f), new Vector3(6.4f, 0.06f, 0.14f), materials[section]);
+            PlaceTemple(_decoColumn, "Separador_Seccion_" + letter,
+                new Vector3(x - 4.5f, 0f, 13.8f), 0f, Vector3.one * 0.5f);
+
+            for (int i = 0; i < 4; i++)
+            {
+                float dx = (i % 2 == 0) ? -2.2f : 2.2f;
+                float y = (i < 2) ? 2.1f : 3.5f;
+                GameObject diana = Spawn(_targetPrefab,
+                    new Vector3(x + dx, y, 14.15f), 180f);
+                AdjustStand(diana);
+                diana.GetComponent<Target>().points =
+                    100 + section * 25 + (i >= 2 ? 25 : 0);
+            }
+        }
+
+        PlaceTemple(_decoColumn, "Separador_Seccion_D",
+            new Vector3(13.5f, 0f, 13.8f), 0f, Vector3.one * 0.5f);
+    }
+
     private static void SetupManager(LevelDefinition def)
     {
         GameObject go = PrefabUtility.InstantiatePrefab(_managerPrefab) as GameObject;
@@ -1290,16 +1363,8 @@ public static class ProjectBuilder
         BuildGalleryWorld();
         Spawn(_playerPrefab, new Vector3(0f, 0f, -11f));
 
-        // Dianas en la pared del fondo de la sala.
-        for (int i = 0; i < 10; i++)
-        {
-            int row = i / 5, col = i % 5;
-            float x = -10f + col * 5f;
-            float y = 2.1f + (col % 2) * 0.8f + row * 0.7f;
-            GameObject diana = Spawn(_targetPrefab, new Vector3(x, y, 15.25f), 180f);
-            AdjustStand(diana);
-            diana.GetComponent<Target>().points = (col == 2) ? 150 : 100;
-        }
+        // Dianas en tres secciones separadas, delante del muro decorativo.
+        BuildGalleryTargets();
 
         // Enemigos esparcidos por el campo exterior (se ven al salir por la derecha).
         Vector3[] outside =
@@ -1396,6 +1461,14 @@ public static class ProjectBuilder
             MenuController[] menus = Object.FindObjectsByType<MenuController>();
             BotAI[] bots = Object.FindObjectsByType<BotAI>();
 
+            GameObject exitDoor = GameObject.Find("Marco_Salida_Temple");
+            int doorColliders = exitDoor == null
+                ? 0 : exitDoor.GetComponentsInChildren<Collider>(true).Length;
+            int dianasVisibles = 0;
+            foreach (Target t in targets)
+                if (t.type == Target.TargetType.Diana && t.transform.position.z < 14.5f)
+                    dianasVisibles++;
+
             int templeMaterials = 0, templeTextured = 0;
             foreach (Renderer renderer in Object.FindObjectsByType<Renderer>(
                          FindObjectsSortMode.None))
@@ -1425,6 +1498,7 @@ public static class ProjectBuilder
                       $"players={players.Length} weapons={weapons.Length} brazos={arms.Length} menus={menus.Length} " +
                       $"bots={bots.Length} soldados={withSoldier} anim={withAnimator} " +
                       $"acotados={bounded} detectanSalida={detecting} armados={ranged} " +
+                      $"puertaCol={doorColliders} dianasVisibles={dianasVisibles} " +
                       $"templeTexturas={templeTextured}/{templeMaterials}");
             foreach (Weapon w in weapons)
             {

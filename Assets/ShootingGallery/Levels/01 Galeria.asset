@@ -17,6 +17,6 @@ MonoBehaviour:
   nextSceneName: 02 Bots
   startingAmmo: 14
   startingReserve: 42
-  totalTargets: 10
+  totalTargets: 12
   totalBots: 5
   hasBoss: 0

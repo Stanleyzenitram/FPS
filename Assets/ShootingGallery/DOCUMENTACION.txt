@@ -19,8 +19,11 @@ Shoot, y ajusta la escala del modelo para que mida 1,8 m (bots) o 2,5 m
 (jefe). Si algun dia falta esa carpeta, queda un capsule de respaldo.
 
 Nivel 1 "01 Galeria de disparos" (sala + campo exterior):
-  - Sala cerrada con 10 dianas en la pared del fondo (100 pts, las
-    centrales 150). Cargador 14 + reserva 42.
+  - Sala cerrada con 12 dianas repartidas en 3 secciones (A, B y C),
+    4 dianas por seccion a dos alturas y panel de color propio. Las
+    secciones van de 100 a 175 puntos segun dificultad. Cargador 14 +
+    reserva 42. Las dianas se colocan delante del muro decorativo porque
+    el modulo Sun_Temple tiene 1,54 m de grosor y antes las tapaba.
   - Salida lateral senalizada en verde (pared derecha, hueco entre z=-4
     y z=2). Al salir (x >= 15,5) se accede a un campo exterior con 5
     soldados esparcidos y coberturas. Los bots estan acotados al exterior
@@ -29,8 +32,11 @@ Nivel 1 "01 Galeria de disparos" (sala + campo exterior):
     hasta que el jugador cruza la salida. Entonces aparece el aviso
     "ENEMIGOS DETECTADOS" y abren fuego desde hasta 36 m si tienen
     linea de vision libre (no disparan a traves de muros).
-  - Objetivo: eliminar los 5 soldados. Las 10 dianas dan puntos extra
+  - Objetivo: eliminar los 5 soldados. Las 12 dianas dan puntos extra
     (bono), pero ya no son obligatorias para terminar el nivel.
+  - Marco de la salida: girado 90 grados para alinearse con el muro lateral
+    y con colision invisible en las dos jambas y el dintel. El hueco central
+    sigue abierto para poder pasar al campo exterior.
 
 Nivel 2 "02 Bots": 5 soldados que persiguen al jugador + 2 dianas.
   Cargador 20 + reserva 60. Soldado = 250 pts (2 impactos).
