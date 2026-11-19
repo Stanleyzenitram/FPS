@@ -38,6 +38,9 @@ public class Weapon : MonoBehaviour
     public GameObject muzzleFlashPrefab;
     public AudioClip reloadClip;
 
+    [Header("Mira ADS")]
+    public Vector3 adsOffset = new Vector3(-0.26f, 0.10f, 0.02f);
+
     [Header("Arsenal")]
     public WeaponSlot[] slots = new WeaponSlot[2];
 
@@ -47,6 +50,7 @@ public class Weapon : MonoBehaviour
     private float _cooldown;
     private float _reloadTimer;
     private float _recoil;
+    private float _lastKick;
     private Vector3 _pivotBasePosition;
     private Quaternion _pivotBaseRotation;
 
@@ -125,12 +129,23 @@ public class Weapon : MonoBehaviour
         _cooldown -= dt;
         _recoil = Mathf.MoveTowards(_recoil, 0f, dt * 6.5f);
 
+        bool aiming = FirstPersonPlayer.Instance != null && FirstPersonPlayer.Instance.IsAiming &&
+                      (GameManager.Instance == null || !GameManager.Instance.IsGameOver);
+        Vector3 ads = aiming ? adsOffset : Vector3.zero;
+
         Transform pivot = weaponPivot != null ? weaponPivot : transform;
         WeaponSlot slot = slots != null && slots.Length > 0 ? slots[_current] : null;
         float kick = slot != null ? slot.recoilKick : 0.06f;
         float pitch = slot != null ? slot.recoilPitch : 2f;
-        pivot.localPosition = _pivotBasePosition + Vector3.back * (kick * _recoil);
-        pivot.localRotation = _pivotBaseRotation * Quaternion.Euler(-pitch * _recoil, 0f, 0f);
+
+        Vector3 restPose = Vector3.Lerp(pivot.localPosition - Vector3.back * (_lastKick),
+            _pivotBasePosition + ads, 15f * dt);
+        _lastKick = kick * _recoil;
+        pivot.localPosition = restPose + Vector3.back * _lastKick;
+
+        Quaternion restRotation = Quaternion.Slerp(pivot.localRotation,
+            _pivotBaseRotation * Quaternion.Euler(aiming ? 1.5f : 0f, 0f, 0f), 15f * dt);
+        pivot.localRotation = restRotation * Quaternion.Euler(-pitch * _recoil, 0f, 0f);
 
         if (_reloadTimer > 0f)
         {

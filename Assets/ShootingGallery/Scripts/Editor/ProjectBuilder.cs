@@ -20,7 +20,7 @@ public static class ProjectBuilder
     private const string SoldierAnims = "Assets/LowPolySoldiers_demo/animation/";
 
     private static Material _floor, _wall, _cover, _outdoor, _exit, _targetMat, _bulletMat,
-        _enemyBulletMat, _weaponMat, _flashMat;
+        _enemyBulletMat, _weaponMat, _flashMat, _trailMat;
     private static GameObject _playerPrefab, _targetPrefab, _botPrefab, _bossPrefab,
         _bulletPrefab, _enemyBulletPrefab, _managerPrefab, _muzzleFlashPrefab;
     private static AudioClip _gun, _hit, _hurt, _win, _lose, _reload;
@@ -155,6 +155,27 @@ public static class ProjectBuilder
         _enemyBulletMat = MakeMaterial("EnemyBullet", new Color(1f, 0.25f, 0.15f));
         _weaponMat = MakeMaterial("WeaponFallback", new Color(0.18f, 0.19f, 0.21f));
         _flashMat = MakeFlashMaterial();
+        _trailMat = MakeTrailMaterial();
+    }
+
+    /// <summary>Material con colores de vertice para que la estela se vea dorada/roja.</summary>
+    private static Material MakeTrailMaterial()
+    {
+        string path = Root + "/Materials/BulletTrail.mat";
+        Material mat = AssetDatabase.LoadAssetAtPath<Material>(path);
+        if (mat == null)
+        {
+            Shader shader = Shader.Find("Sprites/Default");
+            if (shader == null) shader = Shader.Find("Universal Render Pipeline/Unlit");
+            if (shader == null) shader = Shader.Find("Unlit/Color");
+            mat = new Material(shader);
+            AssetDatabase.CreateAsset(mat, path);
+        }
+        if (mat.HasProperty("_BaseColor")) mat.SetColor("_BaseColor", Color.white);
+        mat.SetOverrideTag("RenderType", "Transparent");
+        mat.renderQueue = 3000;
+        EditorUtility.SetDirty(mat);
+        return mat;
     }
 
     // ----------------------------------------------------------- animaciones ---
@@ -252,6 +273,18 @@ public static class ProjectBuilder
         if (r != null) r.sharedMaterial = mat;
     }
 
+    private static void SetupBulletTrail(GameObject bullet, float time, float width)
+    {
+        TrailRenderer trail = bullet.AddComponent<TrailRenderer>();
+        trail.sharedMaterial = _trailMat;
+        trail.time = time;
+        trail.startWidth = width;
+        trail.endWidth = 0f;
+        trail.minVertexDistance = 0.05f;
+        trail.alignment = LineAlignment.View;
+        trail.emitting = false;
+    }
+
     private static void CreatePrefabs()
     {
         // --- Bala del jugador
@@ -260,6 +293,7 @@ public static class ProjectBuilder
         bullet.transform.localScale = Vector3.one * 0.13f;
         SetMaterial(bullet, _bulletMat);
         Object.DestroyImmediate(bullet.GetComponent<Collider>());
+        SetupBulletTrail(bullet, 0.2f, 0.065f);
         Projectile pb = bullet.AddComponent<Projectile>();
         pb.owner = Projectile.Owner.Player;
         pb.speed = 95f;
@@ -272,6 +306,7 @@ public static class ProjectBuilder
         eBullet.transform.localScale = Vector3.one * 0.22f;
         SetMaterial(eBullet, _enemyBulletMat);
         Object.DestroyImmediate(eBullet.GetComponent<Collider>());
+        SetupBulletTrail(eBullet, 0.28f, 0.1f);
         Projectile pe = eBullet.AddComponent<Projectile>();
         pe.owner = Projectile.Owner.Enemy;
         pe.speed = 30f;
@@ -374,11 +409,12 @@ public static class ProjectBuilder
         target.hp = hp;
         target.hitClip = _hit;
 
+        GameObject muzzle = new GameObject("Muzzle");
+        muzzle.transform.SetParent(root.transform, false);
+        muzzle.transform.localPosition = new Vector3(0f, height * 0.72f, height * 0.36f);
+
         if (isBoss)
         {
-            GameObject muzzle = new GameObject("Muzzle");
-            muzzle.transform.SetParent(root.transform, false);
-            muzzle.transform.localPosition = new Vector3(0f, height * 0.7f, height * 0.32f);
             BossAI boss = root.AddComponent<BossAI>();
             boss.muzzle = muzzle.transform;
             boss.enemyBulletPrefab = _enemyBulletPrefab;
@@ -387,7 +423,13 @@ public static class ProjectBuilder
         }
         else
         {
-            root.AddComponent<BotAI>();
+            BotAI bot = root.AddComponent<BotAI>();
+            bot.muzzle = muzzle.transform;
+            bot.enemyBulletPrefab = _enemyBulletPrefab;
+            bot.fireRange = 30f;
+            bot.fireInterval = 2.2f;
+            bot.bulletSpeed = 30f;
+            bot.fireSpread = 3.5f;
         }
 
         return SavePrefab(root, name);
@@ -456,9 +498,11 @@ public static class ProjectBuilder
         {
             pistol = PrefabUtility.InstantiatePrefab(m9Prefab) as GameObject;
             pistol.transform.SetParent(pivot.transform, false);
+            // El FBX trae rotation (270,0,0): sin conservarla la pistola mira al suelo.
+            Quaternion m9BaseRotation = pistol.transform.localRotation;
             FitModel(pistol, 0.42f, true);
             pistol.transform.localPosition = new Vector3(0.30f, -0.28f, 0.55f);
-            pistol.transform.localRotation = Quaternion.Euler(0f, -8f, 0f);
+            pistol.transform.localRotation = Quaternion.Euler(0f, -8f, 0f) * m9BaseRotation;
         }
         else
         {
@@ -609,6 +653,13 @@ public static class ProjectBuilder
         ai.useBounds = true;
         ai.minXZ = new Vector2(15.5f, -39f);
         ai.maxXZ = new Vector2(69f, 39f);
+
+        // En el nivel 1 permanecen en silencio hasta que el jugador cruza la salida.
+        ai.requiresExitDetection = true;
+        ai.activationX = 15.5f;
+        ai.fireRange = 36f;
+        ai.fireInterval = 2.4f;
+        ai.bulletSpeed = 30f;
     }
 
     /// <summary>Ajusta el soporte para que la diana no quede flotando.</summary>
@@ -773,17 +824,20 @@ public static class ProjectBuilder
             MenuController[] menus = Object.FindObjectsByType<MenuController>();
             BotAI[] bots = Object.FindObjectsByType<BotAI>();
 
-            int withSoldier = 0, withAnimator = 0, bounded = 0;
+            int withSoldier = 0, withAnimator = 0, bounded = 0, detecting = 0, ranged = 0;
             foreach (BotAI bot in bots)
             {
                 if (bot.transform.Find("Soldier_Model") != null) withSoldier++;
                 if (bot.GetComponentInChildren<Animator>() != null) withAnimator++;
                 if (bot.useBounds) bounded++;
+                if (bot.requiresExitDetection) detecting++;
+                if (bot.enemyBulletPrefab != null && bot.muzzle != null) ranged++;
             }
 
             Debug.Log($"[VALIDATE] {name}: GM={managers.Length} targets={targets.Length} " +
                       $"players={players.Length} weapons={weapons.Length} menus={menus.Length} " +
-                      $"bots={bots.Length} soldados={withSoldier} anim={withAnimator} acotados={bounded}");
+                      $"bots={bots.Length} soldados={withSoldier} anim={withAnimator} " +
+                      $"acotados={bounded} detectanSalida={detecting} armados={ranged}");
             foreach (Weapon w in weapons)
             {
                 Debug.Log($"[VALIDATE]   arma: bala={(w.bulletPrefab != null)} " +

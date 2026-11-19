@@ -24,10 +24,15 @@ public class GameManager : MonoBehaviour
 
     private int _score, _lives, _targetsLeft, _botsLeft;
     private bool _bossAlive, _gameOver, _won, _outOfAmmoGrace;
-    private float _ammoGrace = -1f, _damageFlash, _messageTimer, _hitMarker, _popupTimer;
+    private float _ammoGrace = -1f, _damageFlash, _messageTimer, _hitMarker, _popupTimer, _alertTimer;
     private string _message = "", _popup = "";
     private Vector3 _popupWorld;
     private Weapon _weapon;
+
+    private static readonly Color Accent = new Color(0.25f, 0.88f, 1f, 0.95f);
+    private static readonly Color Gold = new Color(1f, 0.82f, 0.28f, 0.95f);
+    private static readonly Color Danger = new Color(1f, 0.32f, 0.26f, 0.95f);
+    private static readonly Color Panel = new Color(0.025f, 0.045f, 0.07f, 0.84f);
 
     public bool IsGameOver => _gameOver;
     public bool CanShoot => !_gameOver && WeaponRef != null && WeaponRef.HasAmmo;
@@ -53,7 +58,6 @@ public class GameManager : MonoBehaviour
 
     private void Start()
     {
-        // El arma recibe la municion de este nivel una vez que todos los Awake terminaron.
         if (WeaponRef != null)
             WeaponRef.SetupAmmo(startingAmmo, startingReserve);
     }
@@ -64,10 +68,10 @@ public class GameManager : MonoBehaviour
 
         _damageFlash = Mathf.Max(0f, _damageFlash - Time.deltaTime * 1.8f);
         _messageTimer -= Time.deltaTime;
+        _alertTimer -= Time.deltaTime;
         _hitMarker -= Time.deltaTime;
         _popupTimer -= Time.deltaTime;
 
-        // Margen para que la ultima bala llegue a su destino antes de declarar derrota.
         if (_ammoGrace >= 0f)
         {
             _ammoGrace -= Time.deltaTime;
@@ -95,6 +99,14 @@ public class GameManager : MonoBehaviour
             _outOfAmmoGrace = false;
             _ammoGrace = -1f;
         }
+    }
+
+    /// <summary>Un soldado avisa cuando descubre al jugador al salir de la galeria.</summary>
+    public void OnEnemiesDetected()
+    {
+        if (_gameOver || _alertTimer > 0f) return;
+        _alertTimer = 3.2f;
+        ShowMessage("ENEMIGOS DETECTADOS", 3.2f);
     }
 
     public void TakeDamage(int amount)
@@ -179,19 +191,11 @@ public class GameManager : MonoBehaviour
     private void OnGUI()
     {
         float w = Screen.width, h = Screen.height;
-        Color previous = GUI.color;
 
         DrawStatusPanel();
         DrawArsenalPanel(w, h);
+        DrawCrosshair(w, h);
 
-        // Punto de mira.
-        float cx = w * 0.5f, cy = h * 0.5f;
-        GUI.color = _hitMarker > 0f ? new Color(1f, 0.3f, 0.3f) : new Color(1f, 1f, 1f, 0.9f);
-        GUI.DrawTexture(new Rect(cx - 1f, cy - 9f, 2f, 18f), Texture2D.whiteTexture);
-        GUI.DrawTexture(new Rect(cx - 9f, cy - 1f, 18f, 2f), Texture2D.whiteTexture);
-        GUI.color = previous;
-
-        // "+puntos" flotante sobre el objetivo.
         if (_popupTimer > 0f && FirstPersonPlayer.Instance != null &&
             FirstPersonPlayer.Instance.viewCamera != null)
         {
@@ -199,57 +203,101 @@ public class GameManager : MonoBehaviour
             if (screen.z > 0f)
             {
                 GUI.Label(new Rect(screen.x - 60f, h - screen.y - 50f, 120f, 30f), _popup,
-                    UIStyles.Label(22, TextAnchor.MiddleCenter, new Color(1f, 0.85f, 0.25f), true));
+                    UIStyles.Label(22, TextAnchor.MiddleCenter, Gold, true));
             }
         }
 
-        if (_messageTimer > 0f && !_gameOver)
-            GUI.Label(new Rect(0, h * 0.16f, w, 50), _message,
-                UIStyles.Label(30, TextAnchor.MiddleCenter, new Color(1f, 0.85f, 0.3f), true));
+        if (_messageTimer > 0f && !_gameOver) DrawBanner(w);
 
         if (_damageFlash > 0f)
-        {
-            GUI.color = new Color(1f, 0f, 0f, _damageFlash * 0.28f);
-            GUI.DrawTexture(new Rect(0, 0, w, h), Texture2D.whiteTexture);
-            GUI.color = previous;
-        }
+            UIStyles.Fill(new Rect(0, 0, w, h), new Color(1f, 0f, 0f, _damageFlash * 0.22f));
 
         if (_gameOver) DrawEndPanel(w, h);
     }
 
+    private static void DrawCrosshair(float w, float h)
+    {
+        bool aiming = FirstPersonPlayer.Instance != null && FirstPersonPlayer.Instance.IsAiming;
+        float cx = w * 0.5f, cy = h * 0.5f;
+        float gap = aiming ? 4f : 9f;
+        float len = aiming ? 5f : 7f;
+        float grow = GameManager.Instance != null && GameManager.Instance._hitMarker > 0f ? 3f : 0f;
+        Color color = grow > 0f ? Danger : aiming ? Accent : new Color(1f, 1f, 1f, 0.9f);
+
+        UIStyles.Fill(new Rect(cx - 1f, cy - gap - len - grow, 2f, len), color);
+        UIStyles.Fill(new Rect(cx - 1f, cy + gap + grow, 2f, len), color);
+        UIStyles.Fill(new Rect(cx - gap - len - grow, cy - 1f, len, 2f), color);
+        UIStyles.Fill(new Rect(cx + gap + grow, cy - 1f, len, 2f), color);
+        if (aiming) UIStyles.Fill(new Rect(cx - 1f, cy - 1f, 2f, 2f), color);
+    }
+
+    private void DrawBanner(float w)
+    {
+        float alpha = Mathf.Clamp01(_messageTimer * 2.5f);
+        float bw = Mathf.Min(540f, w * 0.82f), bh = 58f;
+        float bx = (w - bw) * 0.5f, by = Screen.height * 0.15f;
+        Color accent = _alertTimer > 0f ? Danger : Gold;
+
+        UIStyles.Fill(new Rect(bx, by, bw, bh), new Color(0.02f, 0.04f, 0.07f, 0.88f * alpha));
+        UIStyles.Fill(new Rect(bx, by, 5f, bh), new Color(accent.r, accent.g, accent.b, alpha));
+        UIStyles.Fill(new Rect(bx + bw - 5f, by, 5f, bh), new Color(accent.r, accent.g, accent.b, alpha));
+
+        Color previous = GUI.color;
+        GUI.color = new Color(1f, 1f, 1f, alpha);
+        GUI.Label(new Rect(bx, by, bw, bh), _message,
+            UIStyles.Label(28, TextAnchor.MiddleCenter, accent, true));
+        GUI.color = previous;
+    }
+
     private void DrawStatusPanel()
     {
-        GUIStyle hud = UIStyles.Label(18, TextAnchor.MiddleLeft, Color.white, true);
-        GUIStyle hearts = UIStyles.Label(19, TextAnchor.MiddleLeft, new Color(1f, 0.42f, 0.42f), true);
-        GUI.Box(new Rect(14, 14, 336, 176), GUIContent.none);
-        GUI.Label(new Rect(26, 20, 310, 26), "NIVEL: " + levelDisplayName, hud);
-        GUI.Label(new Rect(26, 46, 310, 26), "PUNTUACIÓN: " + _score, hud);
-        GUI.Label(new Rect(26, 72, 310, 26), "VIDA: " + Mathf.Max(0, _lives) + " / 3", hearts);
-        Color saved = GUI.color;
-        GUI.color = new Color(1f, 0.35f, 0.35f);
-        GUI.DrawTexture(new Rect(26, 98, 250f * Mathf.Clamp01(_lives / 3f), 6f), Texture2D.whiteTexture);
-        GUI.color = saved;
-        string objetivo = "OBJETIVOS: ";
-        if (hasBoss) objetivo += _bossAlive ? "JEFE VIVO" : "JEFE ABATIDO";
-        else objetivo += (_targetsLeft + _botsLeft) + " restantes";
-        GUI.Label(new Rect(26, 124, 310, 26), objetivo, hud);
-        GUI.Label(new Rect(26, 150, 310, 24), "R: recargar   1/2: cambiar arma",
-            UIStyles.Label(13, TextAnchor.MiddleLeft, new Color(0.8f, 0.85f, 0.9f)));
+        float x = 14f, y = 14f, pw = 352f, ph = 170f;
+        int lives = Mathf.Max(0, _lives);
+
+        UIStyles.Fill(new Rect(x, y, pw, ph), Panel);
+        UIStyles.Fill(new Rect(x, y, 4f, ph), Accent);
+        UIStyles.Fill(new Rect(x, y + ph - 3f, pw, 3f), new Color(Accent.r, Accent.g, Accent.b, 0.35f));
+
+        GUIStyle label = UIStyles.Label(17, TextAnchor.MiddleLeft, Color.white, true);
+        GUIStyle small = UIStyles.Label(13, TextAnchor.MiddleLeft, new Color(0.72f, 0.8f, 0.88f));
+        GUI.Label(new Rect(x + 16f, y + 12f, pw - 30f, 24f),
+            "NIVEL  //  " + levelDisplayName.ToUpperInvariant(), label);
+        GUI.Label(new Rect(x + 16f, y + 38f, pw - 30f, 24f),
+            "PUNTUACIÓN  " + _score, UIStyles.Label(16, TextAnchor.MiddleLeft, Gold, true));
+        GUI.Label(new Rect(x + 16f, y + 64f, pw - 30f, 24f),
+            "VIDA  " + lives + " / 3", UIStyles.Label(18, TextAnchor.MiddleLeft,
+                lives <= 1 ? Danger : Accent, true));
+
+        for (int i = 0; i < 3; i++)
+        {
+            Color c = i < lives ? (lives <= 1 ? Danger : Accent) : new Color(1f, 1f, 1f, 0.12f);
+            UIStyles.Fill(new Rect(x + 16f + i * 82f, y + 92f, 74f, 7f), c);
+        }
+
+        string objetivo = hasBoss
+            ? (_bossAlive ? "JEFE VIVO" : "JEFE ABATIDO")
+            : (_targetsLeft + _botsLeft) + " objetivos restantes";
+        GUI.Label(new Rect(x + 16f, y + 108f, pw - 30f, 24f), "OBJETIVO  //  " + objetivo, small);
+        GUI.Label(new Rect(x + 16f, y + 138f, pw - 30f, 22f),
+            "R recargar   1/2 arma   CLIC DERECHO mira", small);
     }
 
     private void DrawArsenalPanel(float w, float h)
     {
-        float panelW = 330f, panelH = 150f;
-        float x = w - panelW - 14f, y = h - panelH - 14f;
-        GUI.Box(new Rect(x, y, panelW, panelH), GUIContent.none);
+        float pw = 344f, ph = 176f;
+        float x = w - pw - 14f, y = h - ph - 14f;
 
-        GUI.Label(new Rect(x + 12, y + 8, panelW - 24, 24), "ARSENAL",
-            UIStyles.Label(17, TextAnchor.MiddleLeft, new Color(1f, 0.85f, 0.3f), true));
+        UIStyles.Fill(new Rect(x, y, pw, ph), Panel);
+        UIStyles.Fill(new Rect(x + pw - 4f, y, 4f, ph), Gold);
+        UIStyles.Fill(new Rect(x, y, pw, 3f), new Color(Gold.r, Gold.g, Gold.b, 0.35f));
+
+        GUI.Label(new Rect(x + 14f, y + 10f, pw - 28f, 24f), "ARSENAL  //  02 ARMAS",
+            UIStyles.Label(16, TextAnchor.MiddleLeft, Gold, true));
 
         Weapon weapon = WeaponRef;
         if (weapon == null || weapon.slots == null || weapon.slots.Length == 0)
         {
-            GUI.Label(new Rect(x + 12, y + 36, panelW - 24, 24), "Sin arma",
+            GUI.Label(new Rect(x + 14f, y + 42f, pw - 28f, 24f), "SIN ARMA",
                 UIStyles.Label(15, TextAnchor.MiddleLeft, Color.white));
             return;
         }
@@ -259,59 +307,66 @@ public class GameManager : MonoBehaviour
             WeaponSlot slot = weapon.slots[i];
             if (slot == null) continue;
             bool active = i == weapon.CurrentIndex;
+            float rowY = y + 38f + i * 26f;
+            if (active)
+                UIStyles.Fill(new Rect(x + 10f, rowY + 3f, 3f, 20f), Accent);
             string line = (i + 1) + ". " + (slot.displayName ?? "Arma") +
-                          "   " + slot.magazine + "/" + slot.reserve;
-            GUI.Label(new Rect(x + 12, y + 34 + i * 24, panelW - 24, 24), line,
+                          "    " + slot.magazine + "/" + slot.reserve;
+            GUI.Label(new Rect(x + 22f, rowY, pw - 36f, 24f), line,
                 UIStyles.Label(15, TextAnchor.MiddleLeft,
-                    active ? new Color(0.55f, 1f, 0.65f) : new Color(0.68f, 0.72f, 0.78f), active));
+                    active ? Accent : new Color(0.65f, 0.7f, 0.76f), active));
         }
 
-        GUI.Label(new Rect(x + 12, y + 86, panelW - 24, 24),
-            "BALAS RESTANTES: " + weapon.TotalAmmo,
-            UIStyles.Label(16, TextAnchor.MiddleLeft, Color.white, true));
-        GUI.Label(new Rect(x + 12, y + 110, panelW - 24, 22),
-            weapon.IsReloading ? "RECARGANDO..." : "CARGADOR: " + weapon.CurrentMagazine + "/" + weapon.CurrentMagazineSize,
-            UIStyles.Label(14, TextAnchor.MiddleLeft,
-                weapon.IsReloading ? new Color(1f, 0.7f, 0.25f) : new Color(0.8f, 0.85f, 0.9f), weapon.IsReloading));
+        GUI.Label(new Rect(x + 14f, y + 94f, pw - 28f, 40f),
+            weapon.CurrentMagazine.ToString("00") + "  /  " + weapon.CurrentReserve,
+            UIStyles.Label(32, TextAnchor.MiddleLeft, Color.white, true));
+        GUI.Label(new Rect(x + 14f, y + 132f, pw - 28f, 20f),
+            "BALAS RESTANTES  " + weapon.TotalAmmo,
+            UIStyles.Label(13, TextAnchor.MiddleLeft, new Color(0.78f, 0.84f, 0.9f)));
+
+        string state = weapon.IsReloading
+            ? "RECARGANDO..."
+            : (FirstPersonPlayer.Instance != null && FirstPersonPlayer.Instance.IsAiming
+                ? "MIRA ACTIVA" : "CARGADOR " + weapon.CurrentMagazine + "/" + weapon.CurrentMagazineSize);
+        GUI.Label(new Rect(x + 14f, y + 150f, pw - 28f, 20f), state,
+            UIStyles.Label(12, TextAnchor.MiddleLeft,
+                weapon.IsReloading ? Gold : Accent, weapon.IsReloading));
 
         if (weapon.IsReloading)
-        {
-            Color saved = GUI.color;
-            GUI.color = new Color(1f, 0.7f, 0.2f);
-            GUI.DrawTexture(new Rect(x + 12, y + 136, (panelW - 24) * weapon.ReloadProgress, 4f),
-                Texture2D.whiteTexture);
-            GUI.color = saved;
-        }
+            UIStyles.Fill(new Rect(x + 14f, y + 171f, (pw - 28f) * weapon.ReloadProgress, 3f), Gold);
     }
 
     private void DrawEndPanel(float w, float h)
     {
-        GUI.Box(new Rect(0, 0, w, h), GUIContent.none);
-        float pw = Mathf.Min(520f, w * 0.85f), ph = 380f;
+        UIStyles.Fill(new Rect(0, 0, w, h), new Color(0.01f, 0.02f, 0.04f, 0.86f));
+        float pw = Mathf.Min(540f, w * 0.86f), ph = 390f;
         float px = (w - pw) * 0.5f, py = (h - ph) * 0.5f;
-        GUI.Box(new Rect(px, py, pw, ph), GUIContent.none);
+        Color result = _won ? Accent : Danger;
 
-        Color color = _won ? new Color(0.4f, 1f, 0.5f) : new Color(1f, 0.4f, 0.4f);
-        GUI.Label(new Rect(px, py + 24, pw, 56), _won ? "VICTORIA" : "DERROTA",
-            UIStyles.Label(44, TextAnchor.MiddleCenter, color, true));
-        GUI.Label(new Rect(px, py + 96, pw, 34), "PUNTUACIÓN FINAL: " + _score,
-            UIStyles.Label(26, TextAnchor.MiddleCenter, Color.white, true));
-        GUI.Label(new Rect(px, py + 134, pw, 30), "VIDAS RESTANTES: " + Mathf.Max(0, _lives),
-            UIStyles.Label(20, TextAnchor.MiddleCenter, Color.white));
-        GUI.Label(new Rect(px, py + 168, pw, 30), _message,
-            UIStyles.Label(18, TextAnchor.MiddleCenter, new Color(1f, 0.85f, 0.3f)));
+        UIStyles.Fill(new Rect(px, py, pw, ph), new Color(0.03f, 0.05f, 0.08f, 0.96f));
+        UIStyles.Fill(new Rect(px, py, pw, 5f), result);
+        UIStyles.Fill(new Rect(px, py + ph - 5f, pw, 5f), result);
+
+        GUI.Label(new Rect(px, py + 26f, pw, 58f), _won ? "VICTORIA" : "DERROTA",
+            UIStyles.Label(46, TextAnchor.MiddleCenter, result, true));
+        GUI.Label(new Rect(px, py + 100f, pw, 34f), "PUNTUACIÓN FINAL  " + _score,
+            UIStyles.Label(25, TextAnchor.MiddleCenter, Color.white, true));
+        GUI.Label(new Rect(px, py + 138f, pw, 30f), "VIDAS RESTANTES  " + Mathf.Max(0, _lives),
+            UIStyles.Label(19, TextAnchor.MiddleCenter, Color.white));
+        GUI.Label(new Rect(px, py + 172f, pw, 30f), _message,
+            UIStyles.Label(18, TextAnchor.MiddleCenter, Gold));
 
         GUIStyle button = UIStyles.Button(20);
         float bw = pw - 80f, bx = px + 40f;
         if (_won && !string.IsNullOrEmpty(nextSceneName))
         {
-            if (GUI.Button(new Rect(bx, py + 212, bw, 44), "SIGUIENTE NIVEL", button)) NextLevel();
-            if (GUI.Button(new Rect(bx, py + 264, bw, 44), "VOLVER A JUGAR", button)) RestartRun();
+            if (GUI.Button(new Rect(bx, py + 216f, bw, 44f), "SIGUIENTE NIVEL", button)) NextLevel();
+            if (GUI.Button(new Rect(bx, py + 268f, bw, 44f), "VOLVER A JUGAR", button)) RestartRun();
         }
         else
         {
-            if (GUI.Button(new Rect(bx, py + 212, bw, 44), "VOLVER A JUGAR", button)) RestartRun();
+            if (GUI.Button(new Rect(bx, py + 216f, bw, 44f), "VOLVER A JUGAR", button)) RestartRun();
         }
-        if (GUI.Button(new Rect(bx, py + 316, bw, 44), "MENÚ PRINCIPAL", button)) GoToMenu();
+        if (GUI.Button(new Rect(bx, py + 320f, bw, 44f), "MENÚ PRINCIPAL", button)) GoToMenu();
     }
 }

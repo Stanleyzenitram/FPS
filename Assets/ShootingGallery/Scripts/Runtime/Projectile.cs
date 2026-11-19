@@ -15,6 +15,7 @@ public class Projectile : MonoBehaviour
     private Vector3 _dir;
     private bool _launched;
     private static int _active;
+    private static Material _trailMaterial;
 
     public static int ActiveCount => _active;
 
@@ -27,6 +28,40 @@ public class Projectile : MonoBehaviour
         shooter = shooterTransform;
         _launched = true;
         transform.forward = _dir;
+        SetupTrail();
+    }
+
+    /// <summary>Estela luminosa para que se vea la trayectoria de la bala.</summary>
+    private void SetupTrail()
+    {
+        TrailRenderer trail = GetComponent<TrailRenderer>();
+        if (trail == null) trail = gameObject.AddComponent<TrailRenderer>();
+
+        if (trail.sharedMaterial == null)
+        {
+            if (_trailMaterial == null)
+            {
+                Shader shader = Shader.Find("Sprites/Default");
+                if (shader == null) shader = Shader.Find("Universal Render Pipeline/Unlit");
+                if (shader == null) shader = Shader.Find("Unlit/Color");
+                _trailMaterial = new Material(shader);
+            }
+            trail.sharedMaterial = _trailMaterial;
+        }
+
+        Color color = owner == Owner.Enemy
+            ? new Color(1f, 0.25f, 0.12f, 0.95f)
+            : new Color(1f, 0.85f, 0.25f, 0.95f);
+
+
+        trail.time = owner == Owner.Enemy ? 0.28f : 0.2f;
+        trail.startWidth = owner == Owner.Enemy ? 0.1f : 0.065f;
+        trail.endWidth = 0f;
+        trail.startColor = color;
+        trail.endColor = new Color(color.r, color.g, color.b, 0f);
+        trail.minVertexDistance = 0.05f;
+        trail.alignment = LineAlignment.View;
+        trail.emitting = true;
     }
 
     private void Update()

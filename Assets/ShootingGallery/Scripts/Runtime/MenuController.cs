@@ -4,6 +4,9 @@ using UnityEngine.SceneManagement;
 /// <summary>Menu de entrada. Se muestra en la escena "00 Menu Principal".</summary>
 public class MenuController : MonoBehaviour
 {
+    private static readonly Color Accent = new Color(0.25f, 0.88f, 1f, 0.95f);
+    private static readonly Color Gold = new Color(1f, 0.82f, 0.28f, 0.95f);
+
     private void Start()
     {
         Cursor.lockState = CursorLockMode.None;
@@ -13,34 +16,45 @@ public class MenuController : MonoBehaviour
     private void OnGUI()
     {
         float w = Screen.width, h = Screen.height;
-        GUIStyle title = UIStyles.Label(Mathf.RoundToInt(Mathf.Min(w, h) * 0.09f),
-            TextAnchor.MiddleCenter, new Color(0.95f, 0.78f, 0.25f), true);
-        GUIStyle subtitle = UIStyles.Label(22, TextAnchor.MiddleCenter, Color.white);
-        GUIStyle small = UIStyles.Label(16, TextAnchor.MiddleCenter, new Color(0.75f, 0.8f, 0.85f));
+
+        UIStyles.Fill(new Rect(0, 0, w, h), new Color(0.015f, 0.025f, 0.045f, 0.94f));
+        UIStyles.Fill(new Rect(0, h * 0.07f, w, 2f), new Color(Gold.r, Gold.g, Gold.b, 0.5f));
+        UIStyles.Fill(new Rect(0, h * 0.79f, w, 2f), new Color(Accent.r, Accent.g, Accent.b, 0.35f));
+
+        int titleSize = Mathf.RoundToInt(Mathf.Min(w, h) * 0.085f);
+        GUI.Label(new Rect(0, h * 0.12f, w, 84f), "SHOOTING GALLERY",
+            UIStyles.Label(titleSize, TextAnchor.MiddleCenter, Gold, true));
+        GUI.Label(new Rect(0, h * 0.24f, w, 40f), "FPS MILITAR  //  3 NIVELES  //  ARSENAL TÁCTICO",
+            UIStyles.Label(21, TextAnchor.MiddleCenter, Accent, true));
+
+        float bw = Mathf.Min(340f, w * 0.7f);
+        float bx = (w - bw) * 0.5f;
         GUIStyle button = UIStyles.Button(22);
 
-        GUI.Label(new Rect(0, h * 0.12f, w, 80), "SHOOTING GALLERY", title);
-        GUI.Label(new Rect(0, h * 0.24f, w, 40), "FPS MILITAR - 3 NIVELES", subtitle);
-
-        float bw = Mathf.Min(320f, w * 0.6f);
-        float bx = (w - bw) * 0.5f;
-
-        if (GUI.Button(new Rect(bx, h * 0.38f, bw, 46), "EMPEZAR PARTIDA", button))
+        if (GUI.Button(new Rect(bx, h * 0.35f, bw, 48f), "EMPEZAR PARTIDA", button))
         {
             GameSession.ResetRun();
             SceneManager.LoadScene("01 Galeria de disparos");
         }
-
-        if (GUI.Button(new Rect(bx, h * 0.48f, bw, 46), "SALIR", button))
+        if (GUI.Button(new Rect(bx, h * 0.44f, bw, 48f), "SALIR", button))
         {
             Application.Quit();
         }
 
-        GUI.Label(new Rect(0, h * 0.62f, w, 28),
-            "Flechas / WASD: mover     Ratón: apuntar     Clic izquierdo: disparar", small);
-        GUI.Label(new Rect(0, h * 0.67f, w, 28),
-            "Nivel 1: galería de tiro   Nivel 2: bots   Nivel 3: jefe final", small);
-        GUI.Label(new Rect(0, h * 0.72f, w, 28),
-            "Al agotar la munición o perder las 3 vidas, la partida termina.", small);
+        float pw = Mathf.Min(760f, w * 0.88f), px = (w - pw) * 0.5f;
+        float py = h * 0.57f, ph = 150f;
+        UIStyles.Fill(new Rect(px, py, pw, ph), new Color(0.03f, 0.055f, 0.085f, 0.9f));
+        UIStyles.Fill(new Rect(px, py, 4f, ph), Accent);
+
+        GUIStyle small = UIStyles.Label(16, TextAnchor.MiddleLeft, new Color(0.78f, 0.84f, 0.9f));
+        GUI.Label(new Rect(px + 20f, py + 12f, pw - 40f, 26f),
+            "FLECHAS / WASD  mover      RATÓN  apuntar      CLIC IZQ.  disparar", small);
+        GUI.Label(new Rect(px + 20f, py + 42f, pw - 40f, 26f),
+            "CLIC DER.  mira ADS      R  recargar      1 / 2  cambiar de arma", small);
+        GUI.Label(new Rect(px + 20f, py + 72f, pw - 40f, 26f),
+            "ESPACIO  saltar      ESC  soltar el cursor", small);
+        GUI.Label(new Rect(px + 20f, py + 104f, pw - 40f, 26f),
+            "Nivel 1: galería + campo     Nivel 2: bots     Nivel 3: jefe final",
+            UIStyles.Label(15, TextAnchor.MiddleLeft, new Color(0.6f, 0.68f, 0.76f)));
     }
 }

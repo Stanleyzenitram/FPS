@@ -26,4 +26,13 @@ public static class UIStyles
         };
         return style;
     }
+
+    /// <summary>Rectangulo plano para construir paneles y barras sin depender de uGUI.</summary>
+    public static void Fill(Rect rect, Color color)
+    {
+        Color previous = GUI.color;
+        GUI.color = color;
+        GUI.DrawTexture(rect, Texture2D.whiteTexture);
+        GUI.color = previous;
+    }
 }

@@ -17,9 +17,13 @@ Nivel 1 "01 Galeria de disparos" (sala + campo exterior):
   - Sala cerrada con 10 dianas en la pared del fondo (100 pts, las
     centrales 150). Cargador 14 + reserva 42.
   - Salida lateral senalizada en verde (pared derecha, hueco entre z=-4
-    y z=2). Al salir se accede a un campo exterior con 5 soldados
-    esparcidos y coberturas. Los bots estan acotados al exterior para
-    que no atraviesen las paredes de la sala.
+    y z=2). Al salir (x >= 15,5) se accede a un campo exterior con 5
+    soldados esparcidos y coberturas. Los bots estan acotados al exterior
+    para que no atraviesen las paredes de la sala.
+  - Los 5 soldados exteriores estan en espera: no detectan ni atacan
+    hasta que el jugador cruza la salida. Entonces aparece el aviso
+    "ENEMIGOS DETECTADOS" y abren fuego desde hasta 36 m si tienen
+    linea de vision libre (no disparan a traves de muros).
   - Objetivo: destruir las 10 dianas y los 5 soldados.
 
 Nivel 2 "02 Bots": 5 soldados que persiguen al jugador + 2 dianas.
@@ -38,6 +42,7 @@ para la ultima bala). Puntuacion y vidas se arrastran entre niveles.
 Flechas (o WASD) ......... moverse
 Raton .................... apuntar (cursor bloqueado al empezar)
 Clic izquierdo ........... disparar
+Clic derecho (mantener) .. mira ADS (FOV mas cerrado, arma centrada)
 R ........................ recargar el arma actual
 1 / 2 .................... cambiar entre AR-L y M9
 Espacio .................. saltar
@@ -45,18 +50,23 @@ Escape ................... soltar el cursor
 
 3. HUD
 ------------------------------------------------------------------------
-Arriba-izquierda: nivel, puntuacion, vida (corazones + numero), vidas
-restantes, objetivos y atajos de recarga/cambio.
-Abajo-derecha: ARSENAL con las dos armas y su munición cargador/reserva,
-el arma activa resaltada, "BALAS RESTANTES" (total), estado del
-cargador y barra de progreso mientras recarga.
-Centro: punto de mira que se pone rojo al acertar, "+puntos" flotante
-sobre el objetivo y destello rojo al recibir dano.
+Arriba-izquierda: panel oscuro con borde cian: nivel, puntuación, tres
+segmentos de vida, objetivo restante y atajos (incluye clic derecho).
+Abajo-derecha: ARSENAL con borde dorado, las dos armas, munición
+cargador/reserva en grande, "BALAS RESTANTES", estado del cargador,
+"MIRA ACTIVA" al apuntar y barra de progreso al recargar.
+Centro: punto de mira cian que se ajusta al apuntar y se pone rojo al
+acertar, "+puntos" flotante y banner de aviso cuando te detectan.
+El fondo se tiñe de rojo brevemente al recibir daño.
 
 4. ARMAS, SONIDO, FOGONAZO Y RECOIL
 ------------------------------------------------------------------------
 - Arsenal primario: fusil "Low Poly AR Weapon Pack 3" (AR_L.prefab).
 - Arsenal secundario: pistola M9 del proyecto (Assets/Objects/Handgun).
+  Se conserva la rotación original del FBX (270 grados en X) y solo se
+  añade un giro de -8 grados en Y: antes la pistola apuntaba al suelo.
+- Cada bala lleva una estela (TrailRenderer) dorada si la disparas tu y
+  roja si la dispara un enemigo, para que se vea la trayectoria.
 - Sonido de disparo: Assets/Audio/FSX/Gunfire.wav (el que ya tenias).
 - Sonido de recarga: Effects generado en Assets/ShootingGallery/Audio.
 - Fogonazo: prefab MuzzleFlash (quad con textura radial + luz point)
@@ -64,6 +74,9 @@ sobre el objetivo y destello rojo al recibir dano.
 - Recoil: el pivote del arma retrocede y se levanta al disparar y vuelve
   suavemente a su sitio; la camara recibe un pequeño golpe vertical que
   tambien se recupera solo. El retroceso es mayor en la pistola.
+- ADS: mantener clic derecho baja el FOV de 76 a 54, centra el arma,
+  reduce la sensibilidad y la velocidad, y añade un balanceo de camara
+  muy sutil al caminar.
 
 5. COMO ABRIRLO
 ------------------------------------------------------------------------
@@ -100,7 +113,10 @@ Tools/generate_placeholders.py regenera texturas y efectos de sonido.
 - Cada objetivo tiene Target (tipo, puntos y vida). Bala y objetivo se
   destruyen a la vez en Target.TakeHit.
 - Los bots persiguen en linea recta (sin NavMesh). En el nivel 1 se
-  limita su zona a x>=15,5 para que no entren en la sala de tiro.
+  limita su zona a x>=15,5 para que no entren en la sala de tiro y
+  permanecen inactivos hasta que el jugador cruza esa misma x.
+- Todos los soldados (y el jefe con mas alcance) disparan proyectiles
+  con Raycast barrido y comprueban linea de vision antes de disparar.
 - HUD y menus con IMGUI: sin dependencias de Canvas/uGUI.
 - El soldado del alumno se normaliza por bounds para que siempre tenga
   la altura correcta aunque el FBX venga en otra escala.

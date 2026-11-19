@@ -1,6 +1,9 @@
 using UnityEngine;
 
-/// <summary>Bot con el soldado personalizado: persigue al jugador y quita vida al chocar.</summary>
+/// <summary>
+/// Soldado enemigo: puede esperar a que el jugador salga de la galeria,
+/// perseguirlo y disparar balas visibles desde larga distancia.
+/// </summary>
 public class BotAI : MonoBehaviour
 {
     [Header("Movimiento")]
@@ -14,14 +17,32 @@ public class BotAI : MonoBehaviour
     public Vector2 minXZ = new Vector2(-100f, -100f);
     public Vector2 maxXZ = new Vector2(100f, 100f);
 
+    [Header("Deteccion")]
+    public bool requiresExitDetection;
+    public float activationX = 15.5f;
+
+    [Header("Disparo a distancia")]
+    public GameObject enemyBulletPrefab;
+    public Transform muzzle;
+    public float fireRange = 30f;
+    public float fireInterval = 2.1f;
+    public float fireSpread = 3f;
+    public float bulletSpeed = 32f;
+
     private Transform _player;
     private Animator _animator;
     private float _hitTimer;
+    private float _fireTimer;
+    private bool _detected;
 
     protected virtual void Start()
     {
         _player = FirstPersonPlayer.Instance != null ? FirstPersonPlayer.Instance.transform : null;
         _animator = GetComponentInChildren<Animator>();
+        _detected = !requiresExitDetection;
+        _fireTimer = Random.Range(0.4f, Mathf.Max(0.5f, fireInterval));
+
+        if (_detected) GameManager.Instance?.OnEnemiesDetected();
     }
 
     protected virtual void Update()
@@ -30,6 +51,13 @@ public class BotAI : MonoBehaviour
         if (_player == null) return;
 
         _hitTimer -= Time.deltaTime;
+        CheckDetection();
+
+        if (!_detected)
+        {
+            if (_animator != null) _animator.SetFloat("Speed", 0f);
+            return;
+        }
 
         Vector3 toPlayer = _player.position - transform.position;
         toPlayer.y = 0f;
@@ -45,8 +73,6 @@ public class BotAI : MonoBehaviour
                 next.z = Mathf.Clamp(next.z, minXZ.y, maxXZ.y);
             }
             transform.position = next;
-            transform.rotation = Quaternion.Slerp(transform.rotation,
-                Quaternion.LookRotation(toPlayer), 6f * Time.deltaTime);
         }
         else if (_hitTimer <= 0f)
         {
@@ -54,7 +80,80 @@ public class BotAI : MonoBehaviour
             FirstPersonPlayer.Instance?.TakeDamage(contactDamage);
         }
 
+        // Mirar al jugador tambien cuando esta quieto: asi la bocacha apunta bien.
+        if (toPlayer.sqrMagnitude > 0.01f)
+        {
+            transform.rotation = Quaternion.Slerp(transform.rotation,
+                Quaternion.LookRotation(toPlayer), 7f * Time.deltaTime);
+        }
+
+        UpdateRangedAttack(distance);
+
         if (_animator != null) _animator.SetFloat("Speed", moving ? 1f : 0f);
+    }
+
+    private void CheckDetection()
+    {
+        if (_detected || !requiresExitDetection) return;
+        if (_player.position.x >= activationX)
+        {
+            _detected = true;
+            GameManager.Instance?.OnEnemiesDetected();
+        }
+    }
+
+    /// <summary>Dispara al jugador si esta a alcance y no hay muro de por medio.</summary>
+    protected virtual void UpdateRangedAttack(float distance)
+    {
+        if (enemyBulletPrefab == null || distance > fireRange) return;
+
+        _fireTimer -= Time.deltaTime;
+        if (_fireTimer > 0f) return;
+
+        Vector3 origin = muzzle != null ? muzzle.position : transform.position + Vector3.up * 1.4f;
+        Vector3 target = _player.position + Vector3.up * 1f;
+        if (!HasLineOfSight(origin, target))
+        {
+            _fireTimer = 0.2f;
+            return;
+        }
+
+        _fireTimer = Mathf.Max(0.35f, fireInterval + Random.Range(-0.25f, 0.25f));
+        PlayShootAnimation();
+
+        Vector3 aim = (target - origin).normalized;
+        if (fireSpread > 0f)
+        {
+            aim = Quaternion.Euler(UnityEngine.Random.Range(-fireSpread, fireSpread),
+                UnityEngine.Random.Range(-fireSpread, fireSpread), 0f) * aim;
+        }
+
+        GameObject go = Instantiate(enemyBulletPrefab, origin, Quaternion.LookRotation(aim));
+        Projectile bullet = go.GetComponent<Projectile>();
+        if (bullet == null) bullet = go.AddComponent<Projectile>();
+        bullet.owner = Projectile.Owner.Enemy;
+        bullet.speed = bulletSpeed;
+        bullet.damage = 1;
+        bullet.shooter = transform;
+        bullet.Launch(aim, transform);
+    }
+
+    /// <summary>Primero obstruction que encuentre: muro (false) o jugador (true).</summary>
+    private bool HasLineOfSight(Vector3 origin, Vector3 target)
+    {
+        Vector3 direction = target - origin;
+        float distance = direction.magnitude;
+        if (distance < 0.01f) return true;
+
+        RaycastHit[] hits = Physics.RaycastAll(origin, direction / distance, distance, ~0,
+            QueryTriggerInteraction.Ignore);
+        foreach (RaycastHit hit in hits)
+        {
+            if (hit.transform.IsChildOf(transform)) continue;
+            if (_player != null && hit.transform.IsChildOf(_player)) return true;
+            return false;
+        }
+        return true;
     }
 
     /// <summary>Dispara la animacion de disparo del modelo de soldado.</summary>
