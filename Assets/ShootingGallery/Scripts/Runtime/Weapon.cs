@@ -148,6 +148,21 @@ public class Weapon : MonoBehaviour
 
         if (_reloadTimer > 0f) return;
 
+        // Si el arma actual se quedo sin nada, pasa automaticamente a la que tenga balas.
+        if (slot != null && slot.magazine <= 0 && slot.reserve <= 0)
+        {
+            for (int i = 0; i < slots.Length; i++)
+            {
+                if (i == _current || slots[i] == null) continue;
+                if (slots[i].magazine + slots[i].reserve > 0)
+                {
+                    SelectWeapon(i);
+                    slot = slots[_current];
+                    break;
+                }
+            }
+        }
+
         Mouse mouse = Mouse.current;
         if (mouse == null || !mouse.leftButton.isPressed) return;
         if (Cursor.lockState != CursorLockMode.Locked) return;
