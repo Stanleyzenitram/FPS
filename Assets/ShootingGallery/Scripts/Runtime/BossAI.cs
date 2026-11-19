@@ -9,7 +9,9 @@ public class BossAI : BotAI
         speed = 2f;
         stopDistance = 4f;
         contactDamage = 1;
-        fireRange = 42f;
+        // El templo final mide 108 m de fondo: el jefe debe abrir fuego
+        // mucho antes de llegar cuerpo a cuerpo.
+        fireRange = 90f;
         fireInterval = 1.35f;
         fireSpread = 2f;
         bulletSpeed = 38f;

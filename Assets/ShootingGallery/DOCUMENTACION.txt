@@ -36,14 +36,22 @@ Nivel 1 "01 Galeria de disparos" (sala + campo exterior):
     (bono), pero ya no son obligatorias para terminar el nivel.
   - Marco de la salida: girado 90 grados para alinearse con el muro lateral
     y con colision invisible en las dos jambas y el dintel. El hueco central
-    sigue abierto para poder pasar al campo exterior.
+    sigue abierto para poder pasar al campo exterior. Los modulos de muro
+    (10,56 m de ancho) se centran en los limites de la colision (-4 y 2) y
+    dos piezas de relleno Sun_Temple tapan los laterales del marco, asi que
+    ya no queda un trozo de pared vacio junto a la salida.
 
 Nivel 2 "02 Bots": 5 soldados que persiguen al jugador + 2 dianas.
   Cargador 20 + reserva 60. Soldado = 250 pts (2 impactos).
 
-Nivel 3 "03 Jefe Final": jefe soldado gigante (12 impactos, 1500 pts)
-  que dispara balas enemigas y usa la animacion de disparo, + 3 bots y
-  2 dianas. Cargador 24 + reserva 72.
+Nivel 3 "03 Jefe Final": templo mucho mas grande (70 x 108 m) construido
+  con modulos Sun_Temple: 36 paneles de muro (solidos y completos
+  alternados), 20 columnas, 4 torres, 4 marcos de puerta, 10 antorchas,
+  6 coberturas de caja/barril, rocas, bancos y 77 losetas de pavimento.
+  El jugador empieza en z=-26 y el jefe soldado gigante (12 impactos,
+  1500 pts) espera al fondo, en z=50, con alcance de disparo de 90 m.
+  Ademas hay 5 bots con alcance de 52 m y 2 dianas junto al muro del fondo.
+  Cargador 28 + reserva 84.
 
 Se gana al eliminar todos los enemigos (soldados y, si hay, jefe). Las
 dianas son bonus y no bloquean la victoria. El jugador tiene 5 vidas:
@@ -116,6 +124,11 @@ a generar el proyecto.
   GameManager tienen una fuente 2D (spatialBlend=0) que reproduce los
   efectos directamente. Todos los clips se importan como
   DecompressOnLoad con precarga para que el primer disparo suene.
+- Disparo enemigo audible: cada soldado (y el jefe) lleva su propio
+  AudioSource con el mismo Gunfire.wav, spatialBlend=0,35 (se oye desde
+  cualquier distancia pero se nota la direccion), volumen 0,8, rango
+  2-70 m y una variacion de pitch aleatoria. Se reproduce justo al lanzar
+  la bala enemiga, junto a la animacion de disparo.
 - Sonido de recarga: Effects generado en Assets/ShootingGallery/Audio.
 - Fogonazo: prefab MuzzleFlash (quad con textura radial + luz point)
   que se instancia en la bocacha del arma activa durante 0,075 s.
@@ -184,6 +197,9 @@ Tools/generate_placeholders.py regenera texturas y efectos de sonido.
   reasigna las 11 texturas de albedo originales en cada BuildAll.
 - El muro decorativo del exterior no tapa la salida: solo se coloca en los
   tramos que ya tenian colision y el hueco x=15, z=-4..2 queda libre.
+  Los modulos de la pared derecha y del cierre norte se alinean con esos
+  limites y el marco se rodea con dos piezas de relleno (mas sus colisiones
+  invisibles), de modo que no queda ningun vano sin muro.
 - Cada objetivo tiene Target (tipo, puntos y vida). Bala y objetivo se
   destruyen a la vez en Target.TakeHit.
 - Los bots persiguen en linea recta (sin NavMesh). En el nivel 1 se

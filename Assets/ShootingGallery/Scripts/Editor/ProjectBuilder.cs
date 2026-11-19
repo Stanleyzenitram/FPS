@@ -59,7 +59,7 @@ public static class ProjectBuilder
         LevelDefinition bots = CreateLevel("02 Bots", "02 Modo contra bots",
             "02 Bots", "03 Jefe Final", 20, 60, 2, 5, false);
         LevelDefinition boss = CreateLevel("03 Jefe", "03 Jefe final",
-            "03 Jefe Final", "", 24, 72, 2, 3, true);
+            "03 Jefe Final", "", 28, 84, 2, 5, true);
 
         CreateMenuScene();
         CreateGalleryScene(gallery);
@@ -767,11 +767,24 @@ public static class ProjectBuilder
         muzzle.transform.SetParent(root.transform, false);
         muzzle.transform.localPosition = new Vector3(0f, height * 0.72f, height * 0.36f);
 
+        // Fuente de disparo del enemigo: algo espacial para saber de donde
+        // viene, pero con aire suficiente para oirse en el campo exterior.
+        AudioSource fireAudio = root.AddComponent<AudioSource>();
+        fireAudio.playOnAwake = false;
+        fireAudio.clip = _gun;
+        fireAudio.volume = 0.8f;
+        fireAudio.spatialBlend = 0.35f;
+        fireAudio.rolloffMode = AudioRolloffMode.Linear;
+        fireAudio.minDistance = 2f;
+        fireAudio.maxDistance = 70f;
+
         if (isBoss)
         {
             BossAI boss = root.AddComponent<BossAI>();
             boss.muzzle = muzzle.transform;
             boss.enemyBulletPrefab = _enemyBulletPrefab;
+            boss.fireClip = _gun;
+            boss.sfxSource = fireAudio;
             boss.speed = 2f;
             boss.stopDistance = 4f;
         }
@@ -780,6 +793,8 @@ public static class ProjectBuilder
             BotAI bot = root.AddComponent<BotAI>();
             bot.muzzle = muzzle.transform;
             bot.enemyBulletPrefab = _enemyBulletPrefab;
+            bot.fireClip = _gun;
+            bot.sfxSource = fireAudio;
             bot.fireRange = 30f;
             bot.fireInterval = 2.2f;
             bot.bulletSpeed = 30f;
@@ -1090,6 +1105,19 @@ public static class ProjectBuilder
         const float z = -1f;
         GameObject door = PlaceTemple(_doorFrame, "Marco_Salida_Temple",
             new Vector3(x, 0f, z), 90f, new Vector3(1f, 0.75f, 1.8f));
+
+        // La apertura de colision es de 6 m pero el marco solo ocupa 3,2 m:
+        // rellenamos los dos laterales para que no quede pared vacia.
+        Vector3 fillerScale = new Vector3(0.14f, 0.5f, 0.5f);
+        PlaceTemple(_solidWall, "Relleno_Marco_Sur",
+            new Vector3(x, 0f, -3.3f), 90f, fillerScale);
+        PlaceTemple(_solidWall, "Relleno_Marco_Norte",
+            new Vector3(x, 0f, 1.3f), 90f, fillerScale);
+        MakeCollider("Col_Relleno_Marco_Sur",
+            new Vector3(x, 3f, -3.3f), new Vector3(1f, 6f, 1.4f));
+        MakeCollider("Col_Relleno_Marco_Norte",
+            new Vector3(x, 3f, 1.3f), new Vector3(1f, 6f, 1.4f));
+
         if (door == null) return;
 
         GameObject jambSur = MakeCollider("Col_Marco_Salida_Jamb_Sur",
@@ -1181,6 +1209,78 @@ public static class ProjectBuilder
     }
 
     /// <summary>
+    /// Nivel 3: templo mucho mas grande que la arena de bots, con mas
+    /// modulos Sun_Temple (muro completo, torres, columnas, puertas,
+    /// antorchas, cajas, barriles, rocas y bancos).
+    /// </summary>
+    private static void BuildBossArena()
+    {
+        TilePavement(-34f, 34f, -34f, 74f, "Boss_Pavimento");
+
+        MakeCollider("Col_Boss_Suelo", new Vector3(0f, -0.5f, 20f), new Vector3(70f, 1f, 110f));
+        MakeCollider("Col_Boss_Izquierda", new Vector3(-35f, 4f, 20f), new Vector3(1f, 8f, 110f));
+        MakeCollider("Col_Boss_Derecha", new Vector3(35f, 4f, 20f), new Vector3(1f, 8f, 110f));
+        MakeCollider("Col_Boss_Fondo", new Vector3(0f, 4f, 74f), new Vector3(70f, 8f, 1f));
+        MakeCollider("Col_Boss_Inicio", new Vector3(0f, 4f, -34f), new Vector3(70f, 8f, 1f));
+
+        Vector3 wallScale = new Vector3(1f, 0.6f, 0.5f);
+        int wallIndex = 0;
+        for (float x = -30f; x <= 30f; x += 10f)
+        {
+            GameObject panel = (wallIndex++ % 2 == 0) ? _solidWall : _fullWall;
+            PlaceWall("Muro_Boss_Fondo_" + x, panel, new Vector3(x, 0f, 74f), 0f, wallScale);
+            PlaceWall("Muro_Boss_Inicio_" + x, panel, new Vector3(x, 0f, -34f), 0f, wallScale);
+        }
+        for (float z = -30f; z <= 70f; z += 10f)
+        {
+            GameObject panel = (wallIndex++ % 2 == 0) ? _solidWall : _fullWall;
+            PlaceWall("Muro_Boss_Izq_" + z, panel, new Vector3(-35f, 0f, z), 90f, wallScale);
+            PlaceWall("Muro_Boss_Der_" + z, panel, new Vector3(35f, 0f, z), 90f, wallScale);
+        }
+
+        float[] columnX = { -28f, -14f, 14f, 28f };
+        float[] columnZ = { -20f, 0f, 20f, 40f, 60f };
+        foreach (float x in columnX)
+            foreach (float z in columnZ)
+                PlaceTemple(_decoColumn, $"Columna_Boss_{x}_{z}",
+                    new Vector3(x, 0f, z), 0f, Vector3.one * 0.7f);
+
+        PlaceTemple(_tower, "Torre_Boss_SO", new Vector3(-42f, 0f, 66f), 28f, Vector3.one * 0.62f);
+        PlaceTemple(_tower, "Torre_Boss_SE", new Vector3(42f, 0f, 66f), -28f, Vector3.one * 0.62f);
+        PlaceTemple(_tower, "Torre_Boss_NO", new Vector3(-42f, 0f, -26f), 45f, Vector3.one * 0.55f);
+        PlaceTemple(_tower, "Torre_Boss_NE", new Vector3(42f, 0f, -26f), -45f, Vector3.one * 0.55f);
+
+        PlaceTemple(_doorFrame, "Puerta_Boss_Inicio", new Vector3(0f, 0f, -33.4f), 0f,
+            new Vector3(1.2f, 0.9f, 1.6f));
+        PlaceTemple(_doorFrame, "Puerta_Boss_Fondo", new Vector3(0f, 0f, 73.4f), 0f,
+            new Vector3(1.2f, 0.9f, 1.6f));
+        PlaceTemple(_doorFrame, "Puerta_Boss_Lateral_Izq", new Vector3(-34.4f, 0f, 20f), 90f,
+            new Vector3(1.2f, 0.9f, 1.6f));
+        PlaceTemple(_doorFrame, "Puerta_Boss_Lateral_Der", new Vector3(34.4f, 0f, 20f), 90f,
+            new Vector3(1.2f, 0.9f, 1.6f));
+
+        for (float z = -20f; z <= 60f; z += 20f)
+        {
+            PlaceTemple(_torch, "Antorcha_Boss_Izq_" + z,
+                new Vector3(-33.5f, 0f, z), 90f);
+            PlaceTemple(_torch, "Antorcha_Boss_Der_" + z,
+                new Vector3(33.5f, 0f, z), 90f);
+        }
+
+        PlaceCrateCover("Cobertura_Boss_1", new Vector3(-18f, 0f, 5f), new Vector3(5f, 2f, 4f), 12f);
+        PlaceCrateCover("Cobertura_Boss_2", new Vector3(18f, 0f, 5f), new Vector3(5f, 2f, 4f), -12f);
+        PlaceCrateCover("Cobertura_Boss_3", new Vector3(-8f, 0f, 25f), new Vector3(4f, 2f, 3f), 25f);
+        PlaceCrateCover("Cobertura_Boss_4", new Vector3(8f, 0f, 25f), new Vector3(4f, 2f, 3f), -25f);
+        PlaceCrateCover("Cobertura_Boss_5", new Vector3(-22f, 0f, 48f), new Vector3(5f, 2f, 4f), 18f);
+        PlaceCrateCover("Cobertura_Boss_6", new Vector3(22f, 0f, 48f), new Vector3(5f, 2f, 4f), -18f);
+
+        PlaceTempleDecor(new Vector3(0f, 0f, 20f), 30f, 50f);
+        PlaceTempleDecor(new Vector3(-22f, 0f, 55f), 10f, 15f);
+        PlaceTempleDecor(new Vector3(22f, 0f, 55f), 10f, 15f);
+        AddLight(Vector3.zero, 1.25f);
+    }
+
+    /// <summary>
     /// Nivel 1: sala de tiro del templo con salida lateral al campo exterior.
     /// </summary>
     private static void BuildGalleryWorld()
@@ -1214,10 +1314,11 @@ public static class ProjectBuilder
         }
         for (float z = -16f; z <= 14f; z += 10f)
             PlaceWall("Muro_Izq_" + z, _solidWall, new Vector3(-15f, 0f, z), 90f, wallScale);
-        for (float z = -14f; z <= -4f; z += 10f)
-            PlaceWall("Muro_Der_A_" + z, _solidWall, new Vector3(15f, 0f, z), 90f, wallScale);
-        for (float z = 12f; z <= 22f; z += 10f)
-            PlaceWall("Muro_Der_B_" + z, _solidWall, new Vector3(15f, 0f, z), 90f, wallScale);
+        // Un modulo de muro mide 10,56 m: se centra justo en los limites de
+        // la colision (-4 y 2) para que no tape el hueco de la salida.
+        PlaceWall("Muro_Der_A", _solidWall, new Vector3(15f, 0f, -9.3f), 90f, wallScale);
+        PlaceWall("Muro_Der_B", _solidWall, new Vector3(15f, 0f, 7.3f), 90f, wallScale);
+        PlaceWall("Muro_Der_C", _solidWall, new Vector3(15f, 0f, 17.6f), 90f, wallScale);
 
         PlaceExitDoor();
         PlaceTemple(_decoColumn, "Columna_Sala_Izq", new Vector3(-12f, 0f, -12f), 0f, Vector3.one * 0.62f);
@@ -1230,7 +1331,7 @@ public static class ProjectBuilder
         // la galeria ni los soldados desde dentro.
         for (float z = -16f; z >= -36f; z -= 10f)
             PlaceWall("Cierre_Temple_Sur_" + z, _solidWall, new Vector3(15f, 0f, z), 90f, wallScale);
-        for (float z = 26f; z <= 46f; z += 10f)
+        for (float z = 21.3f; z <= 46f; z += 10f)
             PlaceWall("Cierre_Temple_Norte_" + z, _solidWall, new Vector3(15f, 0f, z), 90f, wallScale);
         for (float z = -30f; z <= 40f; z += 10f)
             PlaceWall("Valla_Temple_Fondo_" + z, _solidWall, new Vector3(70f, 0f, z), 90f, wallScale);
@@ -1271,6 +1372,20 @@ public static class ProjectBuilder
         ai.fireRange = 36f;
         ai.fireInterval = 2.4f;
         ai.bulletSpeed = 30f;
+    }
+
+    /// <summary>Bots del templo grande: alcance amplio y confinados a la arena.</summary>
+    private static void ConfigureBossBot(GameObject bot)
+    {
+        BotAI ai = bot.GetComponent<BotAI>();
+        if (ai == null) return;
+        ai.useBounds = true;
+        ai.minXZ = new Vector2(-33f, -33f);
+        ai.maxXZ = new Vector2(33f, 73f);
+        ai.requiresExitDetection = false;
+        ai.fireRange = 52f;
+        ai.fireInterval = 2.6f;
+        ai.bulletSpeed = 38f;
     }
 
     /// <summary>Ajusta el soporte para que la diana no quede flotando.</summary>
@@ -1414,16 +1529,22 @@ public static class ProjectBuilder
     private static void CreateBossScene(LevelDefinition def)
     {
         NewScene("03 Jefe Final");
-        BuildArena();
-        Spawn(_playerPrefab, new Vector3(0f, 0f, -16f));
-        Spawn(_bossPrefab, new Vector3(0f, 0f, 26f), 180f);
-        Spawn(_botPrefab, new Vector3(-10f, 0f, 12f), 180f);
-        Spawn(_botPrefab, new Vector3(10f, 0f, 12f), 180f);
-        Spawn(_botPrefab, new Vector3(0f, 0f, 8f), 180f);
-        AdjustStand(Spawn(_targetPrefab, new Vector3(-13f, 2.8f, 32f), 180f));
-        AdjustStand(Spawn(_targetPrefab, new Vector3(13f, 2.8f, 32f), 180f));
-        PlaceCrateCover("Cobertura_1", new Vector3(-9f, 0f, 4f), new Vector3(4f, 2f, 3f), -12f);
-        PlaceCrateCover("Cobertura_2", new Vector3(9f, 0f, 4f), new Vector3(4f, 2f, 3f), 12f);
+        BuildBossArena();
+        Spawn(_playerPrefab, new Vector3(0f, 0f, -26f));
+
+        // El jefe queda al fondo del templo: la distancia inicial es de 76 m,
+        // por eso su alcance de disparo se amplia en BossAI.
+        Spawn(_bossPrefab, new Vector3(0f, 0f, 50f), 180f);
+
+        Vector3[] botPositions = {
+            new Vector3(-12f, 0f, 10f), new Vector3(12f, 0f, 10f),
+            new Vector3(-24f, 0f, 30f), new Vector3(24f, 0f, 30f),
+            new Vector3(0f, 0f, 38f)
+        };
+        foreach (Vector3 p in botPositions) ConfigureBossBot(Spawn(_botPrefab, p, 180f));
+
+        AdjustStand(Spawn(_targetPrefab, new Vector3(-13f, 2.8f, 70f), 180f));
+        AdjustStand(Spawn(_targetPrefab, new Vector3(13f, 2.8f, 70f), 180f));
         SetupManager(def);
         SaveCurrentScene("03 Jefe Final");
     }
@@ -1477,8 +1598,7 @@ public static class ProjectBuilder
                     dianasVisibles++;
 
             int templeMaterials = 0, templeTextured = 0;
-            foreach (Renderer renderer in Object.FindObjectsByType<Renderer>(
-                         FindObjectsSortMode.None))
+            foreach (Renderer renderer in Object.FindObjectsByType<Renderer>())
             {
                 foreach (Material material in renderer.sharedMaterials)
                 {
@@ -1491,7 +1611,7 @@ public static class ProjectBuilder
                 }
             }
 
-            int withSoldier = 0, withAnimator = 0, bounded = 0, detecting = 0, ranged = 0;
+            int withSoldier = 0, withAnimator = 0, bounded = 0, detecting = 0, ranged = 0, withAudio = 0;
             foreach (BotAI bot in bots)
             {
                 if (bot.transform.Find("Soldier_Model") != null) withSoldier++;
@@ -1499,12 +1619,25 @@ public static class ProjectBuilder
                 if (bot.useBounds) bounded++;
                 if (bot.requiresExitDetection) detecting++;
                 if (bot.enemyBulletPrefab != null && bot.muzzle != null) ranged++;
+                if (bot.fireClip != null && bot.sfxSource != null) withAudio++;
+            }
+
+            int bossModules = 0;
+            foreach (GameObject go in Object.FindObjectsByType<GameObject>())
+            {
+                string n = go.name;
+                if (n.StartsWith("Muro_Boss_") || n.StartsWith("Columna_Boss_") ||
+                    n.StartsWith("Torre_Boss_") || n.StartsWith("Puerta_Boss_") ||
+                    n.StartsWith("Antorcha_Boss_") || n.StartsWith("Cobertura_Boss_") ||
+                    n.StartsWith("Boss_Pavimento_") || n.StartsWith("Piedra_Deco") ||
+                    n.StartsWith("Banco_Deco")) bossModules++;
             }
 
             Debug.Log($"[VALIDATE] {name}: GM={managers.Length} targets={targets.Length} " +
                       $"players={players.Length} weapons={weapons.Length} brazos={arms.Length} menus={menus.Length} " +
                       $"bots={bots.Length} soldados={withSoldier} anim={withAnimator} " +
                       $"acotados={bounded} detectanSalida={detecting} armados={ranged} " +
+                      $"audioDisparo={withAudio} modulosBoss={bossModules} " +
                       $"puertaCol={doorColliders} dianasVisibles={dianasVisibles} " +
                       $"templeTexturas={templeTextured}/{templeMaterials}");
             foreach (Weapon w in weapons)

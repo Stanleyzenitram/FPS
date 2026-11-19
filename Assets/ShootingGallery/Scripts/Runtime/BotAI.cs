@@ -29,6 +29,10 @@ public class BotAI : MonoBehaviour
     public float fireSpread = 3f;
     public float bulletSpeed = 32f;
 
+    [Header("Sonido de disparo")]
+    public AudioClip fireClip;
+    public AudioSource sfxSource;
+
     private Transform _player;
     private Animator _animator;
     private float _hitTimer;
@@ -120,6 +124,7 @@ public class BotAI : MonoBehaviour
 
         _fireTimer = Mathf.Max(0.35f, fireInterval + Random.Range(-0.25f, 0.25f));
         PlayShootAnimation();
+        PlayFireSound();
 
         Vector3 aim = (target - origin).normalized;
         if (fireSpread > 0f)
@@ -160,5 +165,21 @@ public class BotAI : MonoBehaviour
     protected void PlayShootAnimation()
     {
         if (_animator != null) _animator.SetTrigger("Shoot");
+    }
+
+    /// <summary>
+    /// El disparo enemigo se oye incluso a distancia: la fuente es 2D/3D
+    /// suave para que no se pierda con el volumen del arma del jugador.
+    /// </summary>
+    private void PlayFireSound()
+    {
+        if (fireClip == null) return;
+        if (sfxSource != null)
+        {
+            sfxSource.pitch = Random.Range(0.92f, 1.08f);
+            sfxSource.PlayOneShot(fireClip, 0.85f);
+            return;
+        }
+        GameManager.Instance?.PlaySfx(fireClip, 0.6f);
     }
 }

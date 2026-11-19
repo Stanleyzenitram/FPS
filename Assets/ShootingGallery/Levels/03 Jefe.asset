@@ -15,8 +15,8 @@ MonoBehaviour:
   displayName: 03 Jefe final
   sceneName: 03 Jefe Final
   nextSceneName: 
-  startingAmmo: 24
-  startingReserve: 72
+  startingAmmo: 28
+  startingReserve: 84
   totalTargets: 2
-  totalBots: 3
+  totalBots: 5
   hasBoss: 1
