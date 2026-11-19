@@ -21,6 +21,7 @@ public class GameManager : MonoBehaviour
     public AudioClip hurtClip;
     public AudioClip winClip;
     public AudioClip loseClip;
+    public AudioSource sfxSource;
 
     private int _score, _lives, _targetsLeft, _botsLeft;
     private bool _bossAlive, _gameOver, _won, _outOfAmmoGrace;
@@ -115,7 +116,7 @@ public class GameManager : MonoBehaviour
         _lives -= amount;
         GameSession.Lives = _lives;
         _damageFlash = 1f;
-        if (hurtClip != null) AudioSource.PlayClipAtPoint(hurtClip, Vector3.zero, 0.8f);
+        PlaySfx(hurtClip, 0.9f);
         if (_lives <= 0) Lose("Te han eliminado");
     }
 
@@ -129,8 +130,7 @@ public class GameManager : MonoBehaviour
         _popup = "+" + target.points;
         _popupWorld = target.transform.position;
         _popupTimer = 0.9f;
-        if (target.type == Target.TargetType.Diana && hitClip != null)
-            AudioSource.PlayClipAtPoint(hitClip, target.transform.position, 0.5f);
+        if (target.type == Target.TargetType.Diana) PlaySfx(hitClip, 0.8f);
 
         switch (target.type)
         {
@@ -149,7 +149,7 @@ public class GameManager : MonoBehaviour
         _won = true;
         _score += _lives * 100;
         GameSession.Score = _score;
-        if (winClip != null) AudioSource.PlayClipAtPoint(winClip, Vector3.zero, 0.8f);
+        PlaySfx(winClip, 1f);
         ShowMessage("¡NIVEL COMPLETADO!", 3f);
     }
 
@@ -158,7 +158,7 @@ public class GameManager : MonoBehaviour
         if (_gameOver) return;
         _gameOver = true;
         _won = false;
-        if (loseClip != null) AudioSource.PlayClipAtPoint(loseClip, Vector3.zero, 0.8f);
+        PlaySfx(loseClip, 1f);
         ShowMessage(reason, 3f);
     }
 
@@ -166,6 +166,18 @@ public class GameManager : MonoBehaviour
     {
         _message = text;
         _messageTimer = seconds;
+    }
+
+    /// <summary>Reproduce un efecto en 2D para que siempre se escuche cerca del listener.</summary>
+    public void PlaySfx(AudioClip clip, float volume = 0.8f)
+    {
+        if (clip == null) return;
+        if (sfxSource != null)
+        {
+            sfxSource.PlayOneShot(clip, volume);
+            return;
+        }
+        AudioSource.PlayClipAtPoint(clip, Vector3.zero, volume);
     }
 
     public void NextLevel()

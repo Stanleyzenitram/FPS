@@ -44,7 +44,12 @@ public class FirstPersonPlayer : MonoBehaviour
         }
     }
 
-    private void Start() { LockCursor(); }
+    private void Start()
+    {
+        AudioListener.volume = 1f;
+        AudioListener.pause = false;
+        LockCursor();
+    }
 
     private void Update()
     {

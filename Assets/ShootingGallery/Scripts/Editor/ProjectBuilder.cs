@@ -20,10 +20,11 @@ public static class ProjectBuilder
     private const string SoldierAnims = "Assets/LowPolySoldiers_demo/animation/";
 
     private static Material _floor, _wall, _cover, _outdoor, _exit, _targetMat, _bulletMat,
-        _enemyBulletMat, _weaponMat, _flashMat, _trailMat;
+        _enemyBulletMat, _weaponMat, _flashMat, _trailMat, _weaponArMat, _weaponM9Mat;
     private static GameObject _playerPrefab, _targetPrefab, _botPrefab, _bossPrefab,
         _bulletPrefab, _enemyBulletPrefab, _managerPrefab, _muzzleFlashPrefab;
     private static AudioClip _gun, _hit, _hurt, _win, _lose, _reload;
+    private static Texture2D _arTexture, _m9Texture;
     private static GameObject _soldierAsset;
     private static Avatar _soldierAvatar;
     private static RuntimeAnimatorController _soldierController;
@@ -76,6 +77,17 @@ public static class ProjectBuilder
         _lose = AssetDatabase.LoadAssetAtPath<AudioClip>(Root + "/Audio/lose.wav");
         _reload = AssetDatabase.LoadAssetAtPath<AudioClip>(Root + "/Audio/reload.wav");
 
+        // Los clips deben estar precargados o el primer disparo puede salir sin sonido.
+        ConfigureAudio("Assets/Audio/FSX/Gunfire.wav");
+        ConfigureAudio(Root + "/Audio/hit.wav");
+        ConfigureAudio(Root + "/Audio/hurt.wav");
+        ConfigureAudio(Root + "/Audio/win.wav");
+        ConfigureAudio(Root + "/Audio/lose.wav");
+        ConfigureAudio(Root + "/Audio/reload.wav");
+
+        _arTexture = ConfigureTexture("Assets/Low Poly AR Weapon Pack 3/Texture/Low Poly Weapon.png");
+        _m9Texture = ConfigureTexture("Assets/Objects/Handgun/Tex_0009_1.jpg");
+
         _soldierAsset = AssetDatabase.LoadAssetAtPath<GameObject>(SoldierPrefab);
         Object[] modelAssets = AssetDatabase.LoadAllAssetsAtPath(SoldierModel);
         foreach (Object asset in modelAssets)
@@ -83,7 +95,39 @@ public static class ProjectBuilder
             if (asset is Avatar avatar) { _soldierAvatar = avatar; break; }
         }
         Debug.Log($"[ShootingGallery] Soldado personal={( _soldierAsset != null)} " +
-                  $"avatar={(_soldierAvatar != null)} sonido={(_gun != null)} recarga={(_reload != null)}");
+                  $"avatar={(_soldierAvatar != null)} sonido={(_gun != null)} recarga={(_reload != null)} " +
+                  $"texturas={( _arTexture != null && _m9Texture != null)}");
+    }
+
+    /// <summary>Fuerza DecompressOnLoad + precarga para que los efectos suenen siempre.</summary>
+    private static void ConfigureAudio(string path)
+    {
+        AudioImporter importer = AssetImporter.GetAtPath(path) as AudioImporter;
+        if (importer == null) return;
+        AudioImporterSampleSettings settings = importer.defaultSampleSettings;
+        settings.loadType = AudioClipLoadType.DecompressOnLoad;
+        settings.preloadAudioData = true;
+        importer.defaultSampleSettings = settings;
+        importer.SaveAndReimport();
+    }
+
+    /// <summary>Asegura que la textura del arma se importe como color sRGB.</summary>
+    private static Texture2D ConfigureTexture(string path)
+    {
+        TextureImporter importer = AssetImporter.GetAtPath(path) as TextureImporter;
+        if (importer != null)
+        {
+            bool changed = importer.textureType != TextureImporterType.Default ||
+                           !importer.sRGBTexture || importer.maxTextureSize < 2048;
+            if (changed)
+            {
+                importer.textureType = TextureImporterType.Default;
+                importer.sRGBTexture = true;
+                importer.maxTextureSize = 2048;
+                importer.SaveAndReimport();
+            }
+        }
+        return AssetDatabase.LoadAssetAtPath<Texture2D>(path);
     }
 
     // ----------------------------------------------------------- materiales ---
@@ -154,8 +198,20 @@ public static class ProjectBuilder
         _bulletMat = MakeMaterial("Bullet", new Color(1f, 0.85f, 0.25f));
         _enemyBulletMat = MakeMaterial("EnemyBullet", new Color(1f, 0.25f, 0.15f));
         _weaponMat = MakeMaterial("WeaponFallback", new Color(0.18f, 0.19f, 0.21f));
+        _weaponArMat = MakeWeaponMaterial("Weapon_AR_Textured", _arTexture);
+        _weaponM9Mat = MakeWeaponMaterial("Weapon_M9_Textured", _m9Texture);
         _flashMat = MakeFlashMaterial();
         _trailMat = MakeTrailMaterial();
+    }
+
+    /// <summary>Material PBR sencillo con el atlas de cada arma.</summary>
+    private static Material MakeWeaponMaterial(string name, Texture2D texture)
+    {
+        Material mat = MakeTexturedMaterial(name, Color.white, texture);
+        if (mat.HasProperty("_Metallic")) mat.SetFloat("_Metallic", 0.2f);
+        if (mat.HasProperty("_Smoothness")) mat.SetFloat("_Smoothness", 0.55f);
+        EditorUtility.SetDirty(mat);
+        return mat;
     }
 
     /// <summary>Material con colores de vertice para que la estela se vea dorada/roja.</summary>
@@ -273,6 +329,18 @@ public static class ProjectBuilder
         if (r != null) r.sharedMaterial = mat;
     }
 
+    /// <summary>Sustituye los materiales grises del modelo por el material con textura.</summary>
+    private static void ApplyWeaponMaterial(GameObject weapon, Material mat)
+    {
+        if (weapon == null || mat == null) return;
+        foreach (Renderer renderer in weapon.GetComponentsInChildren<Renderer>(true))
+        {
+            Material[] slots = new Material[renderer.sharedMaterials.Length];
+            for (int i = 0; i < slots.Length; i++) slots[i] = mat;
+            renderer.sharedMaterials = slots;
+        }
+    }
+
     private static void SetupBulletTrail(GameObject bullet, float time, float width)
     {
         TrailRenderer trail = bullet.AddComponent<TrailRenderer>();
@@ -357,11 +425,16 @@ public static class ProjectBuilder
         CreatePlayerPrefab();
 
         GameObject manager = new GameObject("GameManager");
+        AudioSource managerSfx = manager.AddComponent<AudioSource>();
+        managerSfx.playOnAwake = false;
+        managerSfx.spatialBlend = 0f;
+        managerSfx.volume = 1f;
         GameManager gm = manager.AddComponent<GameManager>();
         gm.hitClip = _hit;
         gm.hurtClip = _hurt;
         gm.winClip = _win;
         gm.loseClip = _lose;
+        gm.sfxSource = managerSfx;
         _managerPrefab = SavePrefab(manager, "GameManager");
     }
 
@@ -483,6 +556,7 @@ public static class ProjectBuilder
             rifle.transform.localPosition = new Vector3(0.30f, -0.30f, 0.55f);
             rifle.transform.localRotation = Quaternion.Euler(0f, -6f, 0f);
             rifle.transform.localScale = Vector3.one * 0.55f;
+            ApplyWeaponMaterial(rifle, _weaponArMat);
         }
         else
         {
@@ -503,6 +577,7 @@ public static class ProjectBuilder
             FitModel(pistol, 0.42f, true);
             pistol.transform.localPosition = new Vector3(0.30f, -0.28f, 0.55f);
             pistol.transform.localRotation = Quaternion.Euler(0f, -8f, 0f) * m9BaseRotation;
+            ApplyWeaponMaterial(pistol, _weaponM9Mat);
         }
         else
         {
@@ -518,6 +593,11 @@ public static class ProjectBuilder
         muzzlePistol.transform.SetParent(pivot.transform, false);
         muzzlePistol.transform.localPosition = new Vector3(0.30f, -0.26f, 0.82f);
 
+        AudioSource playerSfx = root.AddComponent<AudioSource>();
+        playerSfx.playOnAwake = false;
+        playerSfx.spatialBlend = 0f;
+        playerSfx.volume = 1f;
+
         FirstPersonPlayer fpp = root.AddComponent<FirstPersonPlayer>();
         fpp.viewCamera = cam;
 
@@ -527,6 +607,7 @@ public static class ProjectBuilder
         wp.bulletPrefab = _bulletPrefab;
         wp.muzzleFlashPrefab = _muzzleFlashPrefab;
         wp.reloadClip = _reload;
+        wp.sfxSource = playerSfx;
         wp.slots = new[]
         {
             new WeaponSlot
@@ -842,8 +923,8 @@ public static class ProjectBuilder
             {
                 Debug.Log($"[VALIDATE]   arma: bala={(w.bulletPrefab != null)} " +
                           $"fogonazo={(w.muzzleFlashPrefab != null)} recarga={(w.reloadClip != null)} " +
-                          $"pivote={(w.weaponPivot != null)} camara={(w.aimCamera != null)} " +
-                          $"slots={(w.slots == null ? 0 : w.slots.Length)}");
+                          $"audio2D={(w.sfxSource != null)} pivote={(w.weaponPivot != null)} " +
+                          $"camara={(w.aimCamera != null)} slots={(w.slots == null ? 0 : w.slots.Length)}");
                 if (w.slots != null)
                     foreach (WeaponSlot slot in w.slots)
                         Debug.Log($"[VALIDATE]     {slot.displayName}: modelo={(slot.model != null)} " +

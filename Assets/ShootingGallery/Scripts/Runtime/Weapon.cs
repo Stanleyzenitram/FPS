@@ -37,6 +37,7 @@ public class Weapon : MonoBehaviour
     public GameObject bulletPrefab;
     public GameObject muzzleFlashPrefab;
     public AudioClip reloadClip;
+    public AudioSource sfxSource;
 
     [Header("Mira ADS")]
     public Vector3 adsOffset = new Vector3(-0.26f, 0.10f, 0.02f);
@@ -211,7 +212,7 @@ public class Weapon : MonoBehaviour
         if (slot == null || slot.magazine >= slot.magazineSize || slot.reserve <= 0) return;
 
         _reloadTimer = slot.reloadTime;
-        if (reloadClip != null) AudioSource.PlayClipAtPoint(reloadClip, transform.position, 0.6f);
+        PlaySfx(reloadClip, 0.7f);
     }
 
     private void FinishReload()
@@ -224,6 +225,18 @@ public class Weapon : MonoBehaviour
         slot.reserve -= taken;
         _reloadTimer = 0f;
         GameManager.Instance?.NotifyAmmoChanged();
+    }
+
+    /// <summary>Sonido 2D directo al listener: evita que el disparo se pierda por attenuacion 3D.</summary>
+    private void PlaySfx(AudioClip clip, float volume)
+    {
+        if (clip == null) return;
+        if (sfxSource != null)
+        {
+            sfxSource.PlayOneShot(clip, volume);
+            return;
+        }
+        AudioSource.PlayClipAtPoint(clip, transform.position, volume);
     }
 
     private void Fire(WeaponSlot slot)
@@ -254,8 +267,7 @@ public class Weapon : MonoBehaviour
         }
 
         Vector3 flashPos = slot.muzzle != null ? slot.muzzle.position : transform.position;
-        if (slot.fireClip != null)
-            AudioSource.PlayClipAtPoint(slot.fireClip, flashPos, 0.75f);
+        PlaySfx(slot.fireClip, 0.95f);
 
         // Fogonazo visible (bocacha) + luz que ilumina la escena un instante.
         if (muzzleFlashPrefab != null)

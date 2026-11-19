@@ -9,6 +9,8 @@ public class MenuController : MonoBehaviour
 
     private void Start()
     {
+        AudioListener.volume = 1f;
+        AudioListener.pause = false;
         Cursor.lockState = CursorLockMode.None;
         Cursor.visible = true;
     }

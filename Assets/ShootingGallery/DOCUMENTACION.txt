@@ -61,13 +61,19 @@ El fondo se tiñe de rojo brevemente al recibir daño.
 
 4. ARMAS, SONIDO, FOGONAZO Y RECOIL
 ------------------------------------------------------------------------
-- Arsenal primario: fusil "Low Poly AR Weapon Pack 3" (AR_L.prefab).
-- Arsenal secundario: pistola M9 del proyecto (Assets/Objects/Handgun).
+- Arsenal primario: fusil "Low Poly AR Weapon Pack 3" (AR_L.prefab), con
+  el atlas Texture/Low Poly Weapon.png aplicado a las 12 mallas.
+- Arsenal secundario: pistola M9 del proyecto (Assets/Objects/Handgun),
+  con la textura Tex_0009_1.jpg aplicada a todas sus mallas.
   Se conserva la rotación original del FBX (270 grados en X) y solo se
   añade un giro de -8 grados en Y: antes la pistola apuntaba al suelo.
 - Cada bala lleva una estela (TrailRenderer) dorada si la disparas tu y
   roja si la dispara un enemigo, para que se vea la trayectoria.
 - Sonido de disparo: Assets/Audio/FSX/Gunfire.wav (el que ya tenias).
+- El audio ya no depende de un AudioSource 3D temporal: el jugador y el
+  GameManager tienen una fuente 2D (spatialBlend=0) que reproduce los
+  efectos directamente. Todos los clips se importan como
+  DecompressOnLoad con precarga para que el primer disparo suene.
 - Sonido de recarga: Effects generado en Assets/ShootingGallery/Audio.
 - Fogonazo: prefab MuzzleFlash (quad con textura radial + luz point)
   que se instancia en la bocacha del arma activa durante 0,075 s.

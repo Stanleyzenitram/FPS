@@ -18,7 +18,10 @@ public class Target : MonoBehaviour
 
         hp -= damage;
         if (hitClip != null)
-            AudioSource.PlayClipAtPoint(hitClip, transform.position, 0.5f);
+        {
+            if (GameManager.Instance != null) GameManager.Instance.PlaySfx(hitClip, 0.8f);
+            else AudioSource.PlayClipAtPoint(hitClip, transform.position, 0.5f);
+        }
 
         if (hp > 0) return false;
 
