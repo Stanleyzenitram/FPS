@@ -25,7 +25,8 @@ public static class ProjectBuilder
     private const string ArmsOcclusion = "Assets/fp-arms/textures/armAO.png";
     private const string BulletPlayerModel = "Assets/Low Poly AR Weapon Pack 3/Prefabs/Bullets/Bullet_A.prefab";
     private const string BulletEnemyModel = "Assets/Low Poly AR Weapon Pack 3/Prefabs/Bullets/Bullet_E.prefab";
-    private const string TempleRoot = "Assets/Sun_Temple/Prefabs/";
+    private const string TempleRoot = "Assets/Sun_Temple/";
+    private const string TemplePrefabsRoot = TempleRoot + "Prefabs/";
 
     private static Material _floor, _wall, _cover, _outdoor, _exit, _targetMat, _bulletMat,
         _enemyBulletMat, _weaponMat, _flashMat, _trailMat, _weaponArMat, _weaponM9Mat,
@@ -49,6 +50,7 @@ public static class ProjectBuilder
         EnsureFolders();
         LoadAssets();
         CreateMaterials();
+        FixTempleMaterials();
         CreateSoldierAnimator();
         CreatePrefabs();
 
@@ -159,7 +161,7 @@ public static class ProjectBuilder
 
     private static GameObject TempleAsset(string relativePath)
     {
-        return AssetDatabase.LoadAssetAtPath<GameObject>(TempleRoot + relativePath);
+        return AssetDatabase.LoadAssetAtPath<GameObject>(TemplePrefabsRoot + relativePath);
     }
 
     /// <summary>Devuelve el primer asset de un tipo dentro de una carpeta.</summary>
@@ -331,6 +333,60 @@ public static class ProjectBuilder
         _armsMat = MakeArmsMaterial();
         _flashMat = MakeFlashMaterial();
         _trailMat = MakeTrailMaterial();
+    }
+
+    /// <summary>
+    /// Los materiales del asset Sun_Temple vinieron actualizados a URP Simple Lit
+    /// pero sin el mapa de color: por eso se veia todo blanco. Recuperamos la
+    /// textura de albedo que correspondia a cada material original.
+    /// </summary>
+    private static void FixTempleMaterials()
+    {
+        string matFolder = TempleRoot + "Content/Meshes/Main/Materials/";
+        string texFolder = TempleRoot + "Content/Textures/";
+        string[] pairs =
+        {
+            "Pavement_A|pavementA_tiling_A.tiff",
+            "Bricks_Plain|bricks_plain_A.tif",
+            "Bricks_Solid|bricks_solid_A.tiff",
+            "Roof_Clay|roof_clay_A.tif",
+            "Plaster_Trims|plaster_trim_A.tif",
+            "Wood_Glazed_Trim|wood_glazed_trim_A.tiff",
+            "Wood_Glazed_Tiling|wood_tiling_A.tif",
+            "Wood_Glazed_Tiling_Rotten|wood_tiling_rotten_A.tif",
+            "Temple_Trims|templetrims_A.tiff",
+            "Metal_Plain_Trim|metal_plain_trim_A.tiff",
+            "PropStones|prop_stones_A.tif"
+        };
+
+        int fixedCount = 0;
+        foreach (string pair in pairs)
+        {
+            string[] parts = pair.Split('|');
+            Material mat = AssetDatabase.LoadAssetAtPath<Material>(matFolder + parts[0] + ".mat");
+            Texture2D tex = ConfigureTexture(texFolder + parts[1]);
+            if (mat == null || tex == null) continue;
+
+            if (mat.HasProperty("_BaseMap")) mat.SetTexture("_BaseMap", tex);
+            if (mat.HasProperty("_MainTex")) mat.SetTexture("_MainTex", tex);
+            if (mat.HasProperty("_BaseColor")) mat.SetColor("_BaseColor", Color.white);
+            if (mat.HasProperty("_Color")) mat.SetColor("_Color", Color.white);
+            EditorUtility.SetDirty(mat);
+            fixedCount++;
+        }
+
+        // HLP_Red es un material de ayuda del asset: no tiene textura, le damos color.
+        Material red = AssetDatabase.LoadAssetAtPath<Material>(matFolder + "HLP_Red.mat");
+        if (red != null)
+        {
+            Color marker = new Color(0.62f, 0.12f, 0.10f, 1f);
+            if (red.HasProperty("_BaseColor")) red.SetColor("_BaseColor", marker);
+            if (red.HasProperty("_Color")) red.SetColor("_Color", marker);
+            EditorUtility.SetDirty(red);
+        }
+
+        AssetDatabase.SaveAssets();
+        Debug.Log($"[ShootingGallery] Materiales Sun_Temple con textura: {fixedCount}/{pairs.Length}");
     }
 
     /// <summary>Material PBR sencillo con el atlas de cada arma.</summary>
@@ -1127,11 +1183,15 @@ public static class ProjectBuilder
         PlaceTemple(_decoColumn, "Columna_Dianas_Izq", new Vector3(-12f, 0f, 13f), 0f, Vector3.one * 0.62f);
         PlaceTemple(_decoColumn, "Columna_Dianas_Der", new Vector3(12f, 0f, 13f), 0f, Vector3.one * 0.62f);
 
-        for (float z = -30f; z <= 30f; z += 10f)
-        {
+        // Cierres laterales del campo: SOLO los tramos que tenian colision.
+        // El hueco de la salida (x=15, z=-4..2) debe quedar libre o no se ve
+        // la galeria ni los soldados desde dentro.
+        for (float z = -16f; z >= -36f; z -= 10f)
             PlaceWall("Cierre_Temple_Sur_" + z, _solidWall, new Vector3(15f, 0f, z), 90f, wallScale);
-            PlaceWall("Cierre_Temple_Norte_" + z, _solidWall, new Vector3(70f, 0f, z), 90f, wallScale);
-        }
+        for (float z = 26f; z <= 46f; z += 10f)
+            PlaceWall("Cierre_Temple_Norte_" + z, _solidWall, new Vector3(15f, 0f, z), 90f, wallScale);
+        for (float z = -30f; z <= 40f; z += 10f)
+            PlaceWall("Valla_Temple_Fondo_" + z, _solidWall, new Vector3(70f, 0f, z), 90f, wallScale);
         for (float x = 22f; x <= 62f; x += 10f)
         {
             PlaceWall("Valla_Temple_Sur_" + x, _solidWall, new Vector3(x, 0f, -40f), 0f, wallScale);
@@ -1336,6 +1396,21 @@ public static class ProjectBuilder
             MenuController[] menus = Object.FindObjectsByType<MenuController>();
             BotAI[] bots = Object.FindObjectsByType<BotAI>();
 
+            int templeMaterials = 0, templeTextured = 0;
+            foreach (Renderer renderer in Object.FindObjectsByType<Renderer>(
+                         FindObjectsSortMode.None))
+            {
+                foreach (Material material in renderer.sharedMaterials)
+                {
+                    if (material == null || !material.shader.name.Contains("Simple Lit")) continue;
+                    templeMaterials++;
+                    Texture baseMap = material.HasProperty("_BaseMap")
+                        ? material.GetTexture("_BaseMap") : null;
+                    if (baseMap == null) baseMap = material.mainTexture;
+                    if (baseMap != null) templeTextured++;
+                }
+            }
+
             int withSoldier = 0, withAnimator = 0, bounded = 0, detecting = 0, ranged = 0;
             foreach (BotAI bot in bots)
             {
@@ -1349,7 +1424,8 @@ public static class ProjectBuilder
             Debug.Log($"[VALIDATE] {name}: GM={managers.Length} targets={targets.Length} " +
                       $"players={players.Length} weapons={weapons.Length} brazos={arms.Length} menus={menus.Length} " +
                       $"bots={bots.Length} soldados={withSoldier} anim={withAnimator} " +
-                      $"acotados={bounded} detectanSalida={detecting} armados={ranged}");
+                      $"acotados={bounded} detectanSalida={detecting} armados={ranged} " +
+                      $"templeTexturas={templeTextured}/{templeMaterials}");
             foreach (Weapon w in weapons)
             {
                 Debug.Log($"[VALIDATE]   arma: bala={(w.bulletPrefab != null)} " +

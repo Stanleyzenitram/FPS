@@ -170,6 +170,11 @@ Tools/generate_placeholders.py regenera texturas y efectos de sonido.
 - Los prefabs decorativos de Sun_Temple se instancian sin collider; las
   paredes y coberturas que detienen balas son cajas invisibles. Asi se
   puede cambiar el aspecto del mapa sin alterar las rutas de los bots.
+- El asset Sun_Temple se importo con URP Simple Lit pero sin mapa de color
+  (_BaseMap vacio), por eso se veia todo blanco. ProjectBuilder.FixTempleMaterials
+  reasigna las 11 texturas de albedo originales en cada BuildAll.
+- El muro decorativo del exterior no tapa la salida: solo se coloca en los
+  tramos que ya tenian colision y el hueco x=15, z=-4..2 queda libre.
 - Cada objetivo tiene Target (tipo, puntos y vida). Bala y objetivo se
   destruyen a la vez en Target.TakeHit.
 - Los bots persiguen en linea recta (sin NavMesh). En el nivel 1 se
@@ -187,8 +192,8 @@ GitHub: haz commit y push de Assets/ShootingGallery/ y Tools/. No subas
 Library/, Temp/, Logs/ ni Builds/ (estan en .gitignore). La carpeta
 Assets/Sun_Temple/ pesa casi 2 GB y por ahora queda fuera del commit:
 copiala tambien al clonar, o incluyla solo si tu cuenta permite repos
-grandes. Sin esa carpeta las escenas se generan con colisiones pero sin
-la decoracion del templo.
+grandes. Copiala tambien al clonar. Sin esa carpeta las escenas se generan
+con colisiones pero sin la decoracion del templo.
 Itch.io: comprime Builds/Windows en ZIP y subelo como Downloadable game
 > Windows.
 
