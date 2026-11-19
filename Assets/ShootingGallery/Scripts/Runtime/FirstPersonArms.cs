@@ -1,18 +1,35 @@
 using UnityEngine;
 
 /// <summary>
-/// Brazos procedurales en primera persona. Mantiene las manos sobre el arma,
-/// cambia la pose al pasar de fusil a pistola y anima la recarga: el arma se
-/// inclina, la mano izquierda va al cargador y el cargador cae / vuelve a entrar.
+/// Manos en primera persona. Usa el modelo importado de brazos cuando esta
+/// asignado y mantiene los brazos procedurales como respaldo. Al cambiar de
+/// arma ajusta la pose y durante la recarga mueve la mano izquierda y el arma.
 /// </summary>
 public class FirstPersonArms : MonoBehaviour
 {
-    [Header("Mallas de los brazos")]
+    [Header("Brazos procedurales (respaldo)")]
     public Transform rightForearm;
     public Transform rightHand;
     public Transform leftForearm;
     public Transform leftHand;
     public GameObject magazineProp;
+
+    [Header("Modelo de manos importado")]
+    public Transform handsRoot;
+    public Transform leftArmBone;
+    public Transform leftElbowBone;
+    public Transform leftWristBone;
+    public Transform rightArmBone;
+    public Transform rightElbowBone;
+    public Transform rightWristBone;
+
+    [Header("Pose del modelo con cada arma")]
+    public Vector3 rifleHandsPosition = new Vector3(0.30f, -0.30f, 0.20f);
+    public Vector3 rifleHandsEuler = Vector3.zero;
+    public float rifleHandsScale = 1f;
+    public Vector3 pistolHandsPosition = new Vector3(0.30f, -0.30f, 0.18f);
+    public Vector3 pistolHandsEuler = Vector3.zero;
+    public float pistolHandsScale = 0.96f;
 
     [Header("Referencia")]
     public Weapon weapon;
@@ -45,12 +62,22 @@ public class FirstPersonArms : MonoBehaviour
     }
 
     private float _weaponBlend;
+    private Vector3 _leftArmBasePos, _leftElbowBasePos, _leftWristBasePos;
+    private Vector3 _rightArmBasePos, _rightElbowBasePos, _rightWristBasePos;
+    private Quaternion _leftArmBaseRot, _leftElbowBaseRot, _leftWristBaseRot;
+    private Quaternion _rightArmBaseRot, _rightElbowBaseRot, _rightWristBaseRot;
 
     private void Awake()
     {
         if (weapon == null) weapon = GetComponentInParent<Weapon>();
         if (weapon == null) weapon = Weapon.Instance;
         _weaponBlend = weapon != null ? weapon.CurrentIndex : 0f;
+        RememberBone(handsRoot != null ? handsRoot : transform, leftArmBone, ref _leftArmBasePos, ref _leftArmBaseRot);
+        RememberBone(handsRoot != null ? handsRoot : transform, leftElbowBone, ref _leftElbowBasePos, ref _leftElbowBaseRot);
+        RememberBone(handsRoot != null ? handsRoot : transform, leftWristBone, ref _leftWristBasePos, ref _leftWristBaseRot);
+        RememberBone(handsRoot != null ? handsRoot : transform, rightArmBone, ref _rightArmBasePos, ref _rightArmBaseRot);
+        RememberBone(handsRoot != null ? handsRoot : transform, rightElbowBone, ref _rightElbowBasePos, ref _rightElbowBaseRot);
+        RememberBone(handsRoot != null ? handsRoot : transform, rightWristBone, ref _rightWristBasePos, ref _rightWristBaseRot);
     }
 
     private void Update()
@@ -58,14 +85,44 @@ public class FirstPersonArms : MonoBehaviour
         if (weapon == null) return;
 
         _weaponBlend = Mathf.MoveTowards(_weaponBlend, weapon.CurrentIndex, Time.deltaTime * 7f);
-        ArmPose pose = GetPose(_weaponBlend);
 
         float reload = weapon.IsReloading ? Mathf.Clamp01(weapon.ReloadProgress) : 0f;
-        // Sube, se mantiene mientras se cambia el cargador y baja al terminar.
         float reach = weapon.IsReloading
             ? Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(reload / 0.35f)) *
               (1f - Mathf.SmoothStep(0.65f, 1f, reload))
             : 0f;
+
+        if (handsRoot != null) UpdateModel(reach);
+        else UpdateProcedural(reach);
+
+        ArmPose pose = GetPose(_weaponBlend);
+        AnimateMagazine(pose.magHome, reload);
+    }
+
+    private void UpdateModel(float reach)
+    {
+        handsRoot.localPosition = Vector3.Lerp(rifleHandsPosition, pistolHandsPosition, _weaponBlend);
+        handsRoot.localRotation = Quaternion.Euler(Vector3.Lerp(rifleHandsEuler, pistolHandsEuler, _weaponBlend));
+        handsRoot.localScale = Vector3.one * Mathf.Lerp(rifleHandsScale, pistolHandsScale, _weaponBlend);
+
+        // La mano izquierda va al cargador y la derecha acompana el giro del arma.
+        SetBone(leftArmBone, _leftArmBasePos, _leftArmBaseRot,
+            new Vector3(6f * reach, 0f, -7f * reach), new Vector3(0f, 0f, 0.012f * reach));
+        SetBone(leftElbowBone, _leftElbowBasePos, _leftElbowBaseRot,
+            new Vector3(-10f * reach, 0f, 8f * reach), new Vector3(0f, 0f, 0.018f * reach));
+        SetBone(leftWristBone, _leftWristBasePos, _leftWristBaseRot,
+            new Vector3(-12f * reach, 0f, 14f * reach), new Vector3(0f, 0f, -0.015f * reach));
+        SetBone(rightArmBone, _rightArmBasePos, _rightArmBaseRot,
+            new Vector3(2f * reach, 0f, -3f * reach), Vector3.zero);
+        SetBone(rightElbowBone, _rightElbowBasePos, _rightElbowBaseRot,
+            new Vector3(-4f * reach, 0f, 4f * reach), Vector3.zero);
+        SetBone(rightWristBone, _rightWristBasePos, _rightWristBaseRot,
+            new Vector3(0f, 0f, -10f * reach), Vector3.zero);
+    }
+
+    private void UpdateProcedural(float reach)
+    {
+        ArmPose pose = GetPose(_weaponBlend);
 
         Vector3 rh = Vector3.Lerp(pose.rightHand, ReloadRightHand, reach * 0.55f);
         Vector3 re = Vector3.Lerp(pose.rightElbow, ReloadRightElbow, reach * 0.55f);
@@ -85,8 +142,22 @@ public class FirstPersonArms : MonoBehaviour
             leftHand.localPosition = lh;
             leftHand.localRotation = Quaternion.Euler(0f, 0f, 16f + 34f * reach);
         }
+    }
 
-        AnimateMagazine(pose.magHome, reload);
+    private static void RememberBone(Transform root, Transform bone,
+        ref Vector3 basePosition, ref Quaternion baseRotation)
+    {
+        if (bone == null || bone == root) return;
+        basePosition = bone.localPosition;
+        baseRotation = bone.localRotation;
+    }
+
+    private static void SetBone(Transform bone, Vector3 basePosition, Quaternion baseRotation,
+        Vector3 eulerOffset, Vector3 positionOffset)
+    {
+        if (bone == null) return;
+        bone.localPosition = basePosition + positionOffset;
+        bone.localRotation = baseRotation * Quaternion.Euler(eulerOffset);
     }
 
     private static ArmPose GetPose(float blend)

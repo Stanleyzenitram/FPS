@@ -24,7 +24,8 @@ Nivel 1 "01 Galeria de disparos" (sala + campo exterior):
     hasta que el jugador cruza la salida. Entonces aparece el aviso
     "ENEMIGOS DETECTADOS" y abren fuego desde hasta 36 m si tienen
     linea de vision libre (no disparan a traves de muros).
-  - Objetivo: destruir las 10 dianas y los 5 soldados.
+  - Objetivo: eliminar los 5 soldados. Las 10 dianas dan puntos extra
+    (bono), pero ya no son obligatorias para terminar el nivel.
 
 Nivel 2 "02 Bots": 5 soldados que persiguen al jugador + 2 dianas.
   Cargador 20 + reserva 60. Soldado = 250 pts (2 impactos).
@@ -33,7 +34,8 @@ Nivel 3 "03 Jefe Final": jefe soldado gigante (12 impactos, 1500 pts)
   que dispara balas enemigas y usa la animacion de disparo, + 3 bots y
   2 dianas. Cargador 24 + reserva 72.
 
-Se gana al destruir todos los objetivos. Se pierde al llegar a 0 vidas
+Se gana al eliminar todos los enemigos (soldados y, si hay, jefe). Las
+dianas son bonus y no bloquean la victoria. Se pierde al llegar a 0 vidas
 o al agotar TODA la munición (cargador + reserva, con 2,5 s de margen
 para la ultima bala). Puntuacion y vidas se arrastran entre niveles.
 
@@ -51,7 +53,7 @@ Escape ................... soltar el cursor
 3. HUD (ESTILO SHOOTER)
 ------------------------------------------------------------------------
 Arriba-izquierda: tarjeta de OPERADOR con nivel, puntuación en grande y
-objetivo restante / estado del jefe.
+enemigos restantes (y dianas de bono) / estado del jefe.
 Arriba-centro: brújula con rumbo en grados, puntos cardinales en español
 y marca central dorada; gira con la cámara del jugador.
 Arriba-derecha: REGISTRO DE BAJAS con las últimas 3 eliminaciones y sus
@@ -104,11 +106,13 @@ a generar el proyecto.
 - ADS: mantener clic derecho baja el FOV de 76 a 54, centra el arma,
   reduce la sensibilidad y la velocidad, y añade un balanceo de camara
   muy sutil al caminar.
-- Personaje en primera persona: se ven los dos brazos (manga con la textura
-  del soldado y guantes oscuros). La mano derecha agarra el pistolete y la
-  izquierda el guardamanos; al cambiar a la M9 el brazo izquierdo baja y se
-  abre. Los brazos no tienen collider ni proyectan sombra, asi que no
-  bloquean los disparos.
+- Personaje en primera persona: usa TU modelo de manos importado
+  (Assets/fp-arms/source/arms.fbx) con color, normal, AO y roughness en un
+  material URP propio (Arms_Imported). La pose se ajusta al fusil y a la M9,
+  y los huesos de la muñeca izquierda acompañan la recarga. Si el FBX no
+  estuviera disponible, quedan unos brazos procedurales de respaldo (manga
+  camuflada y guantes) con el mismo comportamiento. El modelo no tiene
+  collider ni proyecta sombra, asi que no bloquea los disparos.
 - Recarga animada: al pulsar R (o al querer disparar con el cargador vacio)
   el arma baja y gira, la mano izquierda va al cargador, aparece un
   cargador que cae y vuelve a entrar, y todo vuelve a la pose al terminar.
@@ -132,8 +136,8 @@ Assets/ShootingGallery/
   Prefabs/ ......... Player_FPS, Target_Diana, Bot_Soldier, Boss_Soldier,
                       Bullet_Player, Bullet_Enemy, MuzzleFlash, GameManager
   Animations/ ...... Soldier.controller (Idle / Run / Shoot)
-  Materials/ ....... materiales URP, fogonazo transparente, manga camuflada
-                       y guantes del jugador
+  Materials/ ....... materiales URP, fogonazo transparente y Arms_Imported
+                       (manos del usuario); manga/guantes de respaldo
   Art/ ............. diana, X de respaldo y muzzle_flash.png
   Art/UI/ .......... iconos opcionales de vida, munición y hitmarker
   Fonts/ ........... fuente TTF/OTF opcional para HUD y menú

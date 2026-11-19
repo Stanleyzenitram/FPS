@@ -16,6 +16,8 @@ public class GameManager : MonoBehaviour
     public int totalTargets = 0;
     public int totalBots = 0;
     public bool hasBoss = false;
+    /// <summary>Si es false, las dianas son bonus y el nivel termina al eliminar enemigos.</summary>
+    public bool requireTargetsForVictory = false;
 
     [Header("Sonidos")]
     public AudioClip hitClip;
@@ -165,7 +167,9 @@ public class GameManager : MonoBehaviour
             case Target.TargetType.Boss: _bossAlive = false; break;
         }
 
-        if (_targetsLeft <= 0 && _botsLeft <= 0 && !_bossAlive) Win();
+        bool objetivos = _botsLeft <= 0 && (!hasBoss || !_bossAlive) &&
+                         (!requireTargetsForVictory || _targetsLeft <= 0);
+        if (objetivos) Win();
     }
 
     private void Win()
@@ -419,8 +423,10 @@ public class GameManager : MonoBehaviour
 
     private string ObjectiveText()
     {
-        if (hasBoss) return _bossAlive ? "JEFE ACTIVO" : "JEFE ABATIDO";
-        return Mathf.Max(0, _targetsLeft + _botsLeft).ToString("00") + " RESTANTES";
+        int enemies = Mathf.Max(0, _botsLeft) + (hasBoss && _bossAlive ? 1 : 0);
+        string text = enemies.ToString("00") + " ENEMIGOS";
+        if (_targetsLeft > 0) text += "  /  " + _targetsLeft.ToString("00") + " DIANAS BONO";
+        return text;
     }
 
     private void DrawCompass(float w)

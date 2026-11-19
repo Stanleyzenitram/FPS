@@ -18,17 +18,23 @@ public static class ProjectBuilder
     private const string SoldierModel = "Assets/LowPolySoldiers_demo/models/Soldier_demo.FBX";
     private const string SoldierPrefab = "Assets/LowPolySoldiers_demo/Soldier_demo_Prefab.prefab";
     private const string SoldierAnims = "Assets/LowPolySoldiers_demo/animation/";
+    private const string ArmsModel = "Assets/fp-arms/source/arms.fbx";
+    private const string ArmsColor = "Assets/fp-arms/textures/armColor.png";
+    private const string ArmsNormal = "Assets/fp-arms/textures/armNormal.png";
+    private const string ArmsRoughness = "Assets/fp-arms/textures/armRoughness.png";
+    private const string ArmsOcclusion = "Assets/fp-arms/textures/armAO.png";
 
     private static Material _floor, _wall, _cover, _outdoor, _exit, _targetMat, _bulletMat,
         _enemyBulletMat, _weaponMat, _flashMat, _trailMat, _weaponArMat, _weaponM9Mat,
-        _sleeveMat, _gloveMat;
+        _sleeveMat, _gloveMat, _armsMat;
     private static GameObject _playerPrefab, _targetPrefab, _botPrefab, _bossPrefab,
         _bulletPrefab, _enemyBulletPrefab, _managerPrefab, _muzzleFlashPrefab;
     private static AudioClip _gun, _hit, _hurt, _win, _lose, _reload;
-    private static Texture2D _arTexture, _m9Texture, _soldierTexture;
+    private static Texture2D _arTexture, _m9Texture, _soldierTexture,
+        _armsColor, _armsNormal, _armsRoughness, _armsOcclusion;
     private static Font _hudFont;
     private static Texture2D _healthIcon, _ammoIcon, _hitmarkerIcon;
-    private static GameObject _soldierAsset;
+    private static GameObject _soldierAsset, _armsAsset;
     private static Avatar _soldierAvatar;
     private static RuntimeAnimatorController _soldierController;
 
@@ -102,6 +108,13 @@ public static class ProjectBuilder
         _soldierTexture = ConfigureTexture(
             "Assets/LowPolySoldiers_demo/models/Materials/demo_soldier_512.tga");
 
+        // Manos proporcionadas por el usuario: color sRGB, normal y mapas lineales.
+        _armsColor = ConfigureTexture(ArmsColor);
+        _armsNormal = ConfigureNormalTexture(ArmsNormal);
+        _armsRoughness = ConfigureLinearTexture(ArmsRoughness);
+        _armsOcclusion = ConfigureLinearTexture(ArmsOcclusion);
+        _armsAsset = AssetDatabase.LoadAssetAtPath<GameObject>(ArmsModel);
+
         // Assets de HUD opcionales: basta con dejarlos en estas carpetas y regenerar.
         _hudFont = LoadFirstAsset<Font>(Root + "/Fonts");
         _healthIcon = LoadUiTexture("health", "vida", "salud");
@@ -115,7 +128,8 @@ public static class ProjectBuilder
             if (asset is Avatar avatar) { _soldierAvatar = avatar; break; }
         }
         Debug.Log($"[ShootingGallery] Soldado personal={( _soldierAsset != null)} " +
-                  $"avatar={(_soldierAvatar != null)} sonido={(_gun != null)} recarga={(_reload != null)} " +
+                  $"manos={(_armsAsset != null)} avatar={(_soldierAvatar != null)} " +
+                  $"sonido={(_gun != null)} recarga={(_reload != null)} " +
                   $"texturas={( _arTexture != null && _m9Texture != null)} " +
                   $"hud={( _hudFont != null ? "fuente" : "por defecto")}/" +
                   $"{((_healthIcon != null ? 1 : 0) + (_ammoIcon != null ? 1 : 0) + (_hitmarkerIcon != null ? 1 : 0))}iconos");
@@ -170,6 +184,44 @@ public static class ProjectBuilder
             {
                 importer.textureType = TextureImporterType.Default;
                 importer.sRGBTexture = true;
+                importer.maxTextureSize = 2048;
+                importer.SaveAndReimport();
+            }
+        }
+        return AssetDatabase.LoadAssetAtPath<Texture2D>(path);
+    }
+
+    /// <summary>Importa el normal map como datos, no como color.</summary>
+    private static Texture2D ConfigureNormalTexture(string path)
+    {
+        TextureImporter importer = AssetImporter.GetAtPath(path) as TextureImporter;
+        if (importer != null)
+        {
+            bool changed = importer.textureType != TextureImporterType.NormalMap ||
+                           importer.sRGBTexture || importer.maxTextureSize < 2048;
+            if (changed)
+            {
+                importer.textureType = TextureImporterType.NormalMap;
+                importer.sRGBTexture = false;
+                importer.maxTextureSize = 2048;
+                importer.SaveAndReimport();
+            }
+        }
+        return AssetDatabase.LoadAssetAtPath<Texture2D>(path);
+    }
+
+    /// <summary>Importa roughness/AO como datos lineales.</summary>
+    private static Texture2D ConfigureLinearTexture(string path)
+    {
+        TextureImporter importer = AssetImporter.GetAtPath(path) as TextureImporter;
+        if (importer != null)
+        {
+            bool changed = importer.textureType != TextureImporterType.Default ||
+                           importer.sRGBTexture || importer.maxTextureSize < 2048;
+            if (changed)
+            {
+                importer.textureType = TextureImporterType.Default;
+                importer.sRGBTexture = false;
                 importer.maxTextureSize = 2048;
                 importer.SaveAndReimport();
             }
@@ -249,6 +301,7 @@ public static class ProjectBuilder
         _weaponM9Mat = MakeWeaponMaterial("Weapon_M9_Textured", _m9Texture);
         _sleeveMat = MakeTexturedMaterial("Arms_Sleeve", Color.white, _soldierTexture);
         _gloveMat = MakeMaterial("Arms_Glove", new Color(0.07f, 0.08f, 0.07f));
+        _armsMat = MakeArmsMaterial();
         _flashMat = MakeFlashMaterial();
         _trailMat = MakeTrailMaterial();
     }
@@ -259,6 +312,38 @@ public static class ProjectBuilder
         Material mat = MakeTexturedMaterial(name, Color.white, texture);
         if (mat.HasProperty("_Metallic")) mat.SetFloat("_Metallic", 0.2f);
         if (mat.HasProperty("_Smoothness")) mat.SetFloat("_Smoothness", 0.55f);
+        EditorUtility.SetDirty(mat);
+        return mat;
+    }
+
+    /// <summary>Material PBR de las manos importadas con color, normal, AO y roughness.</summary>
+    private static Material MakeArmsMaterial()
+    {
+        Material mat = MakeMaterial("Arms_Imported", Color.white);
+        if (_armsColor != null)
+        {
+            if (mat.HasProperty("_BaseMap")) mat.SetTexture("_BaseMap", _armsColor);
+            mat.mainTexture = _armsColor;
+        }
+        if (_armsNormal != null && mat.HasProperty("_BumpMap"))
+        {
+            mat.SetTexture("_BumpMap", _armsNormal);
+            mat.SetFloat("_BumpScale", 1f);
+            mat.EnableKeyword("_NORMALMAP");
+        }
+        if (_armsOcclusion != null && mat.HasProperty("_OcclusionMap"))
+        {
+            mat.SetTexture("_OcclusionMap", _armsOcclusion);
+            mat.SetFloat("_OcclusionStrength", 1f);
+            mat.EnableKeyword("_OCCLUSIONMAP");
+        }
+        if (_armsRoughness != null && mat.HasProperty("_MetallicGlossMap"))
+        {
+            mat.SetTexture("_MetallicGlossMap", _armsRoughness);
+            mat.EnableKeyword("_METALLICSPECGLOSSMAP");
+        }
+        if (mat.HasProperty("_Metallic")) mat.SetFloat("_Metallic", 0f);
+        if (mat.HasProperty("_Smoothness")) mat.SetFloat("_Smoothness", 0.45f);
         EditorUtility.SetDirty(mat);
         return mat;
     }
@@ -376,6 +461,15 @@ public static class ProjectBuilder
     {
         Renderer r = go.GetComponent<Renderer>();
         if (r != null) r.sharedMaterial = mat;
+    }
+
+    /// <summary>Busca un hueso por nombre en cualquier profundidad del modelo.</summary>
+    private static Transform FindDeepChild(GameObject root, string name)
+    {
+        if (root == null) return null;
+        foreach (Transform child in root.GetComponentsInChildren<Transform>(true))
+            if (child.name == name) return child;
+        return null;
     }
 
     /// <summary>Sustituye los materiales grises del modelo por el material con textura.</summary>
@@ -660,17 +754,53 @@ public static class ProjectBuilder
         muzzlePistol.transform.SetParent(pivot.transform, false);
         muzzlePistol.transform.localPosition = new Vector3(0.30f, -0.26f, 0.82f);
 
-        // --- Brazos del personaje en primera persona: manga del soldado + guantes.
-        GameObject rightForearm = CreateArmPart(
-            "Arm_Right_Forearm", PrimitiveType.Capsule, _sleeveMat, pivot.transform);
-        GameObject rightHand = CreateArmPart(
-            "Arm_Right_Hand", PrimitiveType.Sphere, _gloveMat, pivot.transform);
-        GameObject leftForearm = CreateArmPart(
-            "Arm_Left_Forearm", PrimitiveType.Capsule, _sleeveMat, pivot.transform);
-        GameObject leftHand = CreateArmPart(
-            "Arm_Left_Hand", PrimitiveType.Sphere, _gloveMat, pivot.transform);
-        rightHand.transform.localScale = Vector3.one * 0.12f;
-        leftHand.transform.localScale = Vector3.one * 0.11f;
+        // --- Manos importadas (modelo del usuario), con brazos procedurales de respaldo.
+        Transform rightForearm = null, rightHand = null, leftForearm = null, leftHand = null;
+        Transform handsRoot = null, leftArmBone = null, leftElbowBone = null, leftWristBone = null;
+        Transform rightArmBone = null, rightElbowBone = null, rightWristBone = null;
+
+        if (_armsAsset != null)
+        {
+            GameObject handsModel = PrefabUtility.InstantiatePrefab(_armsAsset) as GameObject;
+            handsModel.name = "FirstPersonHands";
+            handsModel.transform.SetParent(pivot.transform, false);
+            handsModel.transform.localPosition = new Vector3(0.30f, -0.30f, 0.20f);
+            handsModel.transform.localRotation = Quaternion.identity;
+            handsModel.transform.localScale = Vector3.one;
+            ApplyWeaponMaterial(handsModel, _armsMat);
+            foreach (Renderer renderer in handsModel.GetComponentsInChildren<Renderer>(true))
+            {
+                renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+                renderer.receiveShadows = false;
+            }
+            foreach (Collider collider in handsModel.GetComponentsInChildren<Collider>(true))
+                Object.DestroyImmediate(collider);
+
+            handsRoot = handsModel.transform;
+            leftArmBone = FindDeepChild(handsModel, "L_arm");
+            leftElbowBone = FindDeepChild(handsModel, "L_elbow");
+            leftWristBone = FindDeepChild(handsModel, "L_wrist");
+            rightArmBone = FindDeepChild(handsModel, "R_arm");
+            rightElbowBone = FindDeepChild(handsModel, "R_elbow");
+            rightWristBone = FindDeepChild(handsModel, "R_wrist");
+        }
+        else
+        {
+            GameObject rightForearmGo = CreateArmPart(
+                "Arm_Right_Forearm", PrimitiveType.Capsule, _sleeveMat, pivot.transform);
+            GameObject rightHandGo = CreateArmPart(
+                "Arm_Right_Hand", PrimitiveType.Sphere, _gloveMat, pivot.transform);
+            GameObject leftForearmGo = CreateArmPart(
+                "Arm_Left_Forearm", PrimitiveType.Capsule, _sleeveMat, pivot.transform);
+            GameObject leftHandGo = CreateArmPart(
+                "Arm_Left_Hand", PrimitiveType.Sphere, _gloveMat, pivot.transform);
+            rightHandGo.transform.localScale = Vector3.one * 0.12f;
+            leftHandGo.transform.localScale = Vector3.one * 0.11f;
+            rightForearm = rightForearmGo.transform;
+            rightHand = rightHandGo.transform;
+            leftForearm = leftForearmGo.transform;
+            leftHand = leftHandGo.transform;
+        }
 
         GameObject reloadMag = CreateArmPart(
             "Reload_Magazine", PrimitiveType.Cube, _weaponMat, pivot.transform);
@@ -712,11 +842,18 @@ public static class ProjectBuilder
 
         FirstPersonArms arms = pivot.AddComponent<FirstPersonArms>();
         arms.weapon = wp;
-        arms.rightForearm = rightForearm.transform;
-        arms.rightHand = rightHand.transform;
-        arms.leftForearm = leftForearm.transform;
-        arms.leftHand = leftHand.transform;
+        arms.rightForearm = rightForearm;
+        arms.rightHand = rightHand;
+        arms.leftForearm = leftForearm;
+        arms.leftHand = leftHand;
         arms.magazineProp = reloadMag;
+        arms.handsRoot = handsRoot;
+        arms.leftArmBone = leftArmBone;
+        arms.leftElbowBone = leftElbowBone;
+        arms.leftWristBone = leftWristBone;
+        arms.rightArmBone = rightArmBone;
+        arms.rightElbowBone = rightElbowBone;
+        arms.rightWristBone = rightWristBone;
 
         _playerPrefab = SavePrefab(root, "Player_FPS");
     }
@@ -856,6 +993,7 @@ public static class ProjectBuilder
         gm.totalTargets = def.totalTargets;
         gm.totalBots = def.totalBots;
         gm.hasBoss = def.hasBoss;
+        gm.requireTargetsForVictory = false;
     }
 
     private static Scene NewScene(string name)
@@ -1027,14 +1165,16 @@ public static class ProjectBuilder
             }
             foreach (FirstPersonArms a in arms)
             {
-                Debug.Log($"[VALIDATE]   brazos: derecho={(a.rightForearm != null && a.rightHand != null)} " +
-                          $"izquierdo={(a.leftForearm != null && a.leftHand != null)} " +
+                Debug.Log($"[VALIDATE]   brazos: modelo={(a.handsRoot != null)} " +
+                          $"huesos={(a.leftArmBone != null && a.rightArmBone != null)} " +
+                          $"procedurales={(a.rightForearm != null && a.leftForearm != null)} " +
                           $"cargador={(a.magazineProp != null)} arma={(a.weapon != null)}");
             }
             foreach (GameManager gm in managers)
             {
                 Debug.Log($"[VALIDATE]   nivel: cargador={gm.startingAmmo} reserva={gm.startingReserve} " +
                           $"dianas={gm.totalTargets} bots={gm.totalBots} boss={gm.hasBoss} " +
+                          $"exigeDianas={gm.requireTargetsForVictory} " +
                           $"hudFuente={(gm.hudFont != null)} iconos=" +
                           $"{((gm.healthIcon != null ? 1 : 0) + (gm.ammoIcon != null ? 1 : 0) + (gm.hitmarkerIcon != null ? 1 : 0))} " +
                           $"siguiente='{gm.nextSceneName}'");
