@@ -230,6 +230,9 @@ public class GameManager : MonoBehaviour
     public void NextLevel()
     {
         if (string.IsNullOrEmpty(nextSceneName)) { RestartRun(); return; }
+
+        // Cada nivel empieza con la barra de vida llena; la puntuacion se conserva.
+        GameSession.Lives = GameSession.MaxLives;
         Time.timeScale = 1f;
         SceneManager.LoadScene(nextSceneName);
     }
@@ -510,10 +513,10 @@ public class GameManager : MonoBehaviour
         GUI.Label(new Rect(x + S(74f), y + S(32f), S(120f), S(46f)),
             lives.ToString("00"), HudLabel(38, TextAnchor.MiddleLeft, accent, true));
         GUI.Label(new Rect(x + S(154f), y + S(52f), S(56f), S(22f)),
-            "/ 03", HudLabel(14, TextAnchor.MiddleLeft, Muted));
+            "/ 05", HudLabel(14, TextAnchor.MiddleLeft, Muted));
 
-        float barX = x + S(74f), barY = y + S(86f), segW = S(72f), gap = S(6f), barH = S(9f);
-        for (int i = 0; i < 3; i++)
+        float barX = x + S(74f), barY = y + S(86f), segW = S(42f), gap = S(5f), barH = S(9f);
+        for (int i = 0; i < GameSession.MaxLives; i++)
         {
             Color c = i < lives
                 ? new Color(accent.r, accent.g, accent.b, 0.95f)

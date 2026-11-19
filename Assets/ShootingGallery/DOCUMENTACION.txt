@@ -46,9 +46,10 @@ Nivel 3 "03 Jefe Final": jefe soldado gigante (12 impactos, 1500 pts)
   2 dianas. Cargador 24 + reserva 72.
 
 Se gana al eliminar todos los enemigos (soldados y, si hay, jefe). Las
-dianas son bonus y no bloquean la victoria. Se pierde al llegar a 0 vidas
-o al agotar TODA la munición (cargador + reserva, con 2,5 s de margen
-para la ultima bala). Puntuacion y vidas se arrastran entre niveles.
+dianas son bonus y no bloquean la victoria. El jugador tiene 5 vidas:
+se pierde al llegar a 0 o al agotar TODA la munición (cargador + reserva,
+con 2,5 s de margen para la ultima bala). La puntuacion se arrastra entre
+niveles, pero la vida se restaura a 5 al pulsar "SIGUIENTE NIVEL".
 
 2. CONTROLES
 ------------------------------------------------------------------------
@@ -69,7 +70,7 @@ Arriba-centro: brújula con rumbo en grados, puntos cardinales en español
 y marca central dorada; gira con la cámara del jugador.
 Arriba-derecha: REGISTRO DE BAJAS con las últimas 3 eliminaciones y sus
 puntos, con desvanecido progresivo.
-Abajo-izquierda: panel de VIDA con número grande, icono de cruz, tres
+Abajo-izquierda: panel de VIDA con número grande, icono de cruz, cinco
 segmentos y estado ESTABLE / CRÍTICO en rojo al bajar de vida.
 Abajo-derecha: panel de ARSENAL con icono de munición, cargador grande,
 reserva, chips de las dos armas (activa resaltada), total de balas,
@@ -101,6 +102,8 @@ a generar el proyecto.
   con la textura Tex_0009_1.jpg aplicada a todas sus mallas.
   Se conserva la rotación original del FBX (270 grados en X) y solo se
   añade un giro de -8 grados en Y: antes la pistola apuntaba al suelo.
+  Tamano ajustado: el fusil se aumento un poco (0,60) y la M9 se aplano
+  y reduzco para que no parezca mas grande que el AR en pantalla.
 - Las balas ya NO son esferas: usan los modelos importados de la carpeta
   "Low Poly AR Weapon Pack 3/Prefabs/Bullets" (Bullet_A para el jugador y
   Bullet_E para los enemigos), escalados para que se vean en pantalla.

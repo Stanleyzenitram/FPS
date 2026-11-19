@@ -850,7 +850,7 @@ public static class ProjectBuilder
             rifle.transform.SetParent(pivot.transform, false);
             rifle.transform.localPosition = new Vector3(0.30f, -0.30f, 0.55f);
             rifle.transform.localRotation = Quaternion.Euler(0f, -6f, 0f);
-            rifle.transform.localScale = Vector3.one * 0.55f;
+            rifle.transform.localScale = Vector3.one * 0.60f;
             ApplyWeaponMaterial(rifle, _weaponArMat);
         }
         else
@@ -869,7 +869,13 @@ public static class ProjectBuilder
             pistol.transform.SetParent(pivot.transform, false);
             // El FBX trae rotation (270,0,0): sin conservarla la pistola mira al suelo.
             Quaternion m9BaseRotation = pistol.transform.localRotation;
-            FitModel(pistol, 0.42f, true);
+            FitModel(pistol, 0.36f, true);
+            // El modelo original es demasiado alto: una pistola debe ser plana
+            // comparada con el fusil. Por la rotacion de 270 grados del FBX,
+            // la altura en pantalla la controla el eje local Z.
+            Vector3 m9Scale = pistol.transform.localScale;
+            m9Scale.z *= 0.62f;
+            pistol.transform.localScale = m9Scale;
             pistol.transform.localPosition = new Vector3(0.30f, -0.28f, 0.55f);
             pistol.transform.localRotation = Quaternion.Euler(0f, -8f, 0f) * m9BaseRotation;
             ApplyWeaponMaterial(pistol, _weaponM9Mat);
@@ -886,7 +892,7 @@ public static class ProjectBuilder
         muzzleAr.transform.localPosition = new Vector3(0.28f, -0.25f, 1.0f);
         GameObject muzzlePistol = new GameObject("Muzzle_M9");
         muzzlePistol.transform.SetParent(pivot.transform, false);
-        muzzlePistol.transform.localPosition = new Vector3(0.30f, -0.26f, 0.82f);
+        muzzlePistol.transform.localPosition = new Vector3(0.30f, -0.24f, 0.76f);
 
         // --- Manos importadas (modelo del usuario), con brazos procedurales de respaldo.
         Transform rightForearm = null, rightHand = null, leftForearm = null, leftHand = null;
@@ -982,6 +988,7 @@ public static class ProjectBuilder
         arms.leftHand = leftHand;
         arms.magazineProp = reloadMag;
         arms.handsRoot = handsRoot;
+        arms.pistolHandsScale = 0.92f;
         arms.leftArmBone = leftArmBone;
         arms.leftElbowBone = leftElbowBone;
         arms.leftWristBone = leftWristBone;
