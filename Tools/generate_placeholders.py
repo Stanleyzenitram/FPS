@@ -34,6 +34,25 @@ def write_png(path, width, height, pixels):
         f.write(chunk(b"IEND", b""))
 
 
+def write_rgba_png(path, width, height, pixels):
+    """PNG con canal alfa (color type 6)."""
+    raw = bytearray()
+    for y in range(height):
+        raw.append(0)
+        for x in range(width):
+            raw.extend(pixels[y * width + x])
+
+    def chunk(tag, data):
+        return (struct.pack(">I", len(data)) + tag + data
+                + struct.pack(">I", zlib.crc32(tag + data) & 0xFFFFFFFF))
+
+    with open(path, "wb") as f:
+        f.write(b"\x89PNG\r\n\x1a\n")
+        f.write(chunk(b"IHDR", struct.pack(">IIBBBBB", width, height, 8, 6, 0, 0, 0)))
+        f.write(chunk(b"IDAT", zlib.compress(bytes(raw), 9)))
+        f.write(chunk(b"IEND", b""))
+
+
 def solid(c):
     return c
 
@@ -97,11 +116,33 @@ def make_wav(name, notes, duration=0.12, volume=0.22, noise=False):
         f.writeframes(bytes(frames))
 
 
+def make_muzzle_flash():
+    """Estrella luminosa con alfa para el fogonazo del arma."""
+    n = 64
+    px = [(0, 0, 0, 0) for _ in range(n * n)]
+    cx = cy = (n - 1) / 2.0
+    for y in range(n):
+        for x in range(n):
+            dx, dy = x - cx, y - cy
+            d = math.hypot(dx, dy)
+            ang = math.atan2(dy, dx)
+            # nucleo redondo + 4 puntas alargadas
+            spikes = max(abs(math.cos(ang * 2.0)), abs(math.sin(ang * 2.0)))
+            radius = 9.0 + 20.0 * (spikes ** 6)
+            if d > radius:
+                continue
+            a = int(255 * max(0.0, 1.0 - (d / radius) ** 1.5))
+            px[y * n + x] = (255, int(210 + 45 * (1 - d / radius)), int(90 + 90 * (1 - d / radius)), a)
+    write_rgba_png(os.path.join(ART, "muzzle_flash.png"), n, n, px)
+
+
 make_target()
 make_x("enemy_x.png", (205, 48, 48), (48, 48, 54))
 make_x("boss_x.png", (255, 90, 40), (70, 28, 30), thickness=12)
+make_muzzle_flash()
 make_wav("hit.wav", [(880, .07), (1320, .08)])
 make_wav("hurt.wav", [(150, .10), (110, .16)], volume=0.28, noise=True)
 make_wav("win.wav", [(523, .12), (659, .12), (784, .12), (1047, .25)])
 make_wav("lose.wav", [(392, .14), (311, .14), (233, .3)])
+make_wav("reload.wav", [(240, .05), (420, .05), (260, .06)], volume=0.2, noise=True)
 print("placeholders listos")

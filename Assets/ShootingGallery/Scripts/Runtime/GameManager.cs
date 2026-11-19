@@ -1,15 +1,17 @@
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
-/// <summary>Marcador, munición, vidas, condiciones de victoria/derrota y HUD.</summary>
+/// <summary>Marcador, vidas, arsenal, condiciones de victoria/derrota y HUD.</summary>
 public class GameManager : MonoBehaviour
 {
     public static GameManager Instance { get; private set; }
+    public static bool IsFinished => Instance != null && Instance.IsGameOver;
 
     [Header("Configuracion del nivel (la rellena el generador)")]
     public string levelDisplayName = "Nivel";
     public string nextSceneName = "";
     public int startingAmmo = 14;
+    public int startingReserve = 42;
     public int totalTargets = 0;
     public int totalBots = 0;
     public bool hasBoss = false;
@@ -20,24 +22,40 @@ public class GameManager : MonoBehaviour
     public AudioClip winClip;
     public AudioClip loseClip;
 
-    private int _score, _ammo, _lives, _targetsLeft, _botsLeft;
-    private bool _bossAlive, _gameOver, _won;
+    private int _score, _lives, _targetsLeft, _botsLeft;
+    private bool _bossAlive, _gameOver, _won, _outOfAmmoGrace;
     private float _ammoGrace = -1f, _damageFlash, _messageTimer, _hitMarker, _popupTimer;
     private string _message = "", _popup = "";
     private Vector3 _popupWorld;
+    private Weapon _weapon;
 
     public bool IsGameOver => _gameOver;
-    public bool CanShoot => !_gameOver && _ammo > 0;
+    public bool CanShoot => !_gameOver && WeaponRef != null && WeaponRef.HasAmmo;
+
+    private Weapon WeaponRef
+    {
+        get
+        {
+            if (_weapon == null) _weapon = FindAnyObjectByType<Weapon>();
+            return _weapon;
+        }
+    }
 
     private void Awake()
     {
         Instance = this;
         _score = GameSession.Score;
         _lives = GameSession.Lives;
-        _ammo = startingAmmo;
         _targetsLeft = totalTargets;
         _botsLeft = totalBots;
         _bossAlive = hasBoss;
+    }
+
+    private void Start()
+    {
+        // El arma recibe la municion de este nivel una vez que todos los Awake terminaron.
+        if (WeaponRef != null)
+            WeaponRef.SetupAmmo(startingAmmo, startingReserve);
     }
 
     private void Update()
@@ -49,7 +67,7 @@ public class GameManager : MonoBehaviour
         _hitMarker -= Time.deltaTime;
         _popupTimer -= Time.deltaTime;
 
-        // Da un margen de 2.5 s para que la ultima bala llegue a su destino.
+        // Margen para que la ultima bala llegue a su destino antes de declarar derrota.
         if (_ammoGrace >= 0f)
         {
             _ammoGrace -= Time.deltaTime;
@@ -58,11 +76,25 @@ public class GameManager : MonoBehaviour
         }
     }
 
-    public void ConsumeAmmo()
+    /// <summary>El arma avisa cuando dispara, recarga o cambia de arma.</summary>
+    public void NotifyAmmoChanged()
     {
-        if (_gameOver || _ammo <= 0) return;
-        _ammo--;
-        if (_ammo == 0) _ammoGrace = 2.5f;
+        if (_gameOver || WeaponRef == null) return;
+
+        if (WeaponRef.TotalAmmo <= 0)
+        {
+            if (!_outOfAmmoGrace)
+            {
+                _outOfAmmoGrace = true;
+                _ammoGrace = 2.5f;
+                ShowMessage("Sin munición", 2.5f);
+            }
+        }
+        else
+        {
+            _outOfAmmoGrace = false;
+            _ammoGrace = -1f;
+        }
     }
 
     public void TakeDamage(int amount)
@@ -147,21 +179,13 @@ public class GameManager : MonoBehaviour
     private void OnGUI()
     {
         float w = Screen.width, h = Screen.height;
+        Color previous = GUI.color;
 
-        GUIStyle hud = UIStyles.Label(18, TextAnchor.MiddleLeft, Color.white, true);
-        GUI.Box(new Rect(14, 14, 330, 154), GUIContent.none);
-        GUI.Label(new Rect(26, 20, 310, 26), "NIVEL: " + levelDisplayName, hud);
-        GUI.Label(new Rect(26, 46, 310, 26), "PUNTUACIÓN: " + _score, hud);
-        GUI.Label(new Rect(26, 72, 310, 26), "MUNICIÓN: " + _ammo, hud);
-        GUI.Label(new Rect(26, 98, 310, 26), "VIDAS: " + _lives, hud);
-        string objetivo = "OBJETIVOS: ";
-        if (hasBoss) objetivo += _bossAlive ? "JEFE VIVO" : "JEFE ABATIDO";
-        else objetivo += (_targetsLeft + _botsLeft) + " restantes";
-        GUI.Label(new Rect(26, 124, 310, 26), objetivo, hud);
+        DrawStatusPanel();
+        DrawArsenalPanel(w, h);
 
         // Punto de mira.
         float cx = w * 0.5f, cy = h * 0.5f;
-        Color previous = GUI.color;
         GUI.color = _hitMarker > 0f ? new Color(1f, 0.3f, 0.3f) : new Color(1f, 1f, 1f, 0.9f);
         GUI.DrawTexture(new Rect(cx - 1f, cy - 9f, 2f, 18f), Texture2D.whiteTexture);
         GUI.DrawTexture(new Rect(cx - 9f, cy - 1f, 18f, 2f), Texture2D.whiteTexture);
@@ -191,6 +215,73 @@ public class GameManager : MonoBehaviour
         }
 
         if (_gameOver) DrawEndPanel(w, h);
+    }
+
+    private void DrawStatusPanel()
+    {
+        GUIStyle hud = UIStyles.Label(18, TextAnchor.MiddleLeft, Color.white, true);
+        GUIStyle hearts = UIStyles.Label(19, TextAnchor.MiddleLeft, new Color(1f, 0.42f, 0.42f), true);
+        GUI.Box(new Rect(14, 14, 336, 176), GUIContent.none);
+        GUI.Label(new Rect(26, 20, 310, 26), "NIVEL: " + levelDisplayName, hud);
+        GUI.Label(new Rect(26, 46, 310, 26), "PUNTUACIÓN: " + _score, hud);
+        GUI.Label(new Rect(26, 72, 310, 26), "VIDA: " + Mathf.Max(0, _lives) + " / 3", hearts);
+        Color saved = GUI.color;
+        GUI.color = new Color(1f, 0.35f, 0.35f);
+        GUI.DrawTexture(new Rect(26, 98, 250f * Mathf.Clamp01(_lives / 3f), 6f), Texture2D.whiteTexture);
+        GUI.color = saved;
+        string objetivo = "OBJETIVOS: ";
+        if (hasBoss) objetivo += _bossAlive ? "JEFE VIVO" : "JEFE ABATIDO";
+        else objetivo += (_targetsLeft + _botsLeft) + " restantes";
+        GUI.Label(new Rect(26, 124, 310, 26), objetivo, hud);
+        GUI.Label(new Rect(26, 150, 310, 24), "R: recargar   1/2: cambiar arma",
+            UIStyles.Label(13, TextAnchor.MiddleLeft, new Color(0.8f, 0.85f, 0.9f)));
+    }
+
+    private void DrawArsenalPanel(float w, float h)
+    {
+        float panelW = 330f, panelH = 150f;
+        float x = w - panelW - 14f, y = h - panelH - 14f;
+        GUI.Box(new Rect(x, y, panelW, panelH), GUIContent.none);
+
+        GUI.Label(new Rect(x + 12, y + 8, panelW - 24, 24), "ARSENAL",
+            UIStyles.Label(17, TextAnchor.MiddleLeft, new Color(1f, 0.85f, 0.3f), true));
+
+        Weapon weapon = WeaponRef;
+        if (weapon == null || weapon.slots == null || weapon.slots.Length == 0)
+        {
+            GUI.Label(new Rect(x + 12, y + 36, panelW - 24, 24), "Sin arma",
+                UIStyles.Label(15, TextAnchor.MiddleLeft, Color.white));
+            return;
+        }
+
+        for (int i = 0; i < weapon.slots.Length; i++)
+        {
+            WeaponSlot slot = weapon.slots[i];
+            if (slot == null) continue;
+            bool active = i == weapon.CurrentIndex;
+            string line = (i + 1) + ". " + (slot.displayName ?? "Arma") +
+                          "   " + slot.magazine + "/" + slot.reserve;
+            GUI.Label(new Rect(x + 12, y + 34 + i * 24, panelW - 24, 24), line,
+                UIStyles.Label(15, TextAnchor.MiddleLeft,
+                    active ? new Color(0.55f, 1f, 0.65f) : new Color(0.68f, 0.72f, 0.78f), active));
+        }
+
+        GUI.Label(new Rect(x + 12, y + 86, panelW - 24, 24),
+            "BALAS RESTANTES: " + weapon.TotalAmmo,
+            UIStyles.Label(16, TextAnchor.MiddleLeft, Color.white, true));
+        GUI.Label(new Rect(x + 12, y + 110, panelW - 24, 22),
+            weapon.IsReloading ? "RECARGANDO..." : "CARGADOR: " + weapon.CurrentMagazine + "/" + weapon.CurrentMagazineSize,
+            UIStyles.Label(14, TextAnchor.MiddleLeft,
+                weapon.IsReloading ? new Color(1f, 0.7f, 0.25f) : new Color(0.8f, 0.85f, 0.9f), weapon.IsReloading));
+
+        if (weapon.IsReloading)
+        {
+            Color saved = GUI.color;
+            GUI.color = new Color(1f, 0.7f, 0.2f);
+            GUI.DrawTexture(new Rect(x + 12, y + 136, (panelW - 24) * weapon.ReloadProgress, 4f),
+                Texture2D.whiteTexture);
+            GUI.color = saved;
+        }
     }
 
     private void DrawEndPanel(float w, float h)

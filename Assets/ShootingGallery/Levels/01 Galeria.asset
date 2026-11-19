@@ -16,6 +16,7 @@ MonoBehaviour:
   sceneName: 01 Galeria de disparos
   nextSceneName: 02 Bots
   startingAmmo: 14
+  startingReserve: 42
   totalTargets: 10
-  totalBots: 0
+  totalBots: 5
   hasBoss: 0

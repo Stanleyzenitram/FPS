@@ -5,105 +5,112 @@ Unity 6000.6.2f1 - URP - Input System
 
 1. QUE SE HA HECHO
 ------------------------------------------------------------------------
-FPS militar de galeria de tiro con tres niveles y menu de inicio/final:
+FPS militar con menu de inicio/final, arsenal con recarga y tres niveles.
+Los enemigos usan TU ASSET PERSONAL de soldado:
+  Assets/LowPolySoldiers_demo/Soldier_demo_Prefab.prefab
+  (modelo Soldier_demo.FBX + animaciones demo_combat_idle / run / shoot)
+El generador crea ademas un AnimatorController con estados Idle, Run y
+Shoot, y ajusta la escala del modelo para que mida 1,8 m (bots) o 2,5 m
+(jefe). Si algun dia falta esa carpeta, queda un capsule de respaldo.
 
-  Nivel 1 "01 Galeria de disparos": 10 dianas sobre soportes. 14 balas.
-      Dianas normales = 100 puntos, diana central de cada fila = 150.
+Nivel 1 "01 Galeria de disparos" (sala + campo exterior):
+  - Sala cerrada con 10 dianas en la pared del fondo (100 pts, las
+    centrales 150). Cargador 14 + reserva 42.
+  - Salida lateral senalizada en verde (pared derecha, hueco entre z=-4
+    y z=2). Al salir se accede a un campo exterior con 5 soldados
+    esparcidos y coberturas. Los bots estan acotados al exterior para
+    que no atraviesen las paredes de la sala.
+  - Objetivo: destruir las 10 dianas y los 5 soldados.
 
-  Nivel 2 "02 Bots": 5 bots que persiguen al jugador + 2 dianas. 22 balas.
-      Bot = 250 puntos (2 impactos). Al chocar quitan 1 vida.
+Nivel 2 "02 Bots": 5 soldados que persiguen al jugador + 2 dianas.
+  Cargador 20 + reserva 60. Soldado = 250 pts (2 impactos).
 
-  Nivel 3 "03 Jefe Final": 1 jefe (12 impactos, 1500 puntos) que dispara
-      balas enemigas, 3 bots y 2 dianas. 30 balas.
+Nivel 3 "03 Jefe Final": jefe soldado gigante (12 impactos, 1500 pts)
+  que dispara balas enemigas y usa la animacion de disparo, + 3 bots y
+  2 dianas. Cargador 24 + reserva 72.
 
-Se gana al destruir todos los objetivos del nivel. Se pierde al agotar la
-municion (con 2,5 s de margen para la ultima bala) o al llegar a 0 vidas.
-Al morir o ganar aparece un menu con "Volver a jugar" y "Menu principal".
-La puntuacion y las vidas se arrastran entre niveles (GameSession).
+Se gana al destruir todos los objetivos. Se pierde al llegar a 0 vidas
+o al agotar TODA la munición (cargador + reserva, con 2,5 s de margen
+para la ultima bala). Puntuacion y vidas se arrastran entre niveles.
 
 2. CONTROLES
 ------------------------------------------------------------------------
 Flechas (o WASD) ......... moverse
-Raton .................... apuntar (se bloquea el cursor al empezar)
+Raton .................... apuntar (cursor bloqueado al empezar)
 Clic izquierdo ........... disparar
+R ........................ recargar el arma actual
+1 / 2 .................... cambiar entre AR-L y M9
 Espacio .................. saltar
 Escape ................... soltar el cursor
 
-3. COMO ABRIRLO
+3. HUD
+------------------------------------------------------------------------
+Arriba-izquierda: nivel, puntuacion, vida (corazones + numero), vidas
+restantes, objetivos y atajos de recarga/cambio.
+Abajo-derecha: ARSENAL con las dos armas y su munición cargador/reserva,
+el arma activa resaltada, "BALAS RESTANTES" (total), estado del
+cargador y barra de progreso mientras recarga.
+Centro: punto de mira que se pone rojo al acertar, "+puntos" flotante
+sobre el objetivo y destello rojo al recibir dano.
+
+4. ARMAS, SONIDO, FOGONAZO Y RECOIL
+------------------------------------------------------------------------
+- Arsenal primario: fusil "Low Poly AR Weapon Pack 3" (AR_L.prefab).
+- Arsenal secundario: pistola M9 del proyecto (Assets/Objects/Handgun).
+- Sonido de disparo: Assets/Audio/FSX/Gunfire.wav (el que ya tenias).
+- Sonido de recarga: Effects generado en Assets/ShootingGallery/Audio.
+- Fogonazo: prefab MuzzleFlash (quad con textura radial + luz point)
+  que se instancia en la bocacha del arma activa durante 0,075 s.
+- Recoil: el pivote del arma retrocede y se levanta al disparar y vuelve
+  suavemente a su sitio; la camara recibe un pequeño golpe vertical que
+  tambien se recupera solo. El retroceso es mayor en la pistola.
+
+5. COMO ABRIRLO
 ------------------------------------------------------------------------
 Abre Unity Hub > Add > selecciona la carpeta raiz del proyecto.
 Abre Assets/ShootingGallery/Scenes/00 Menu Principal.unity y pulsa Play.
-Tambien puedes abrir directamente cualquier nivel desde Build Settings.
+Regenerar contenido: menu "Shooting Gallery > Generar proyecto".
+Comprobar referencias: "Shooting Gallery > Validar proyecto".
+Build Windows: "Shooting Gallery > Build Windows" -> Builds/Windows/FPS.exe
 
-Si quieres regenerar prefabs/escenas: menu "Shooting Gallery > Generar
-proyecto". Para comprobar referencias: "Shooting Gallery > Validar proyecto".
-
-4. ESTRUCTURA
+6. ESTRUCTURA
 ------------------------------------------------------------------------
 Assets/ShootingGallery/
-  Scripts/Runtime/ ... logica del juego (jugador, arma, bala, diana, bots,
-                       jefe, manager, HUD y menus)
-  Scripts/Editor/ ... ProjectBuilder: crea materiales, prefabs, escenas y
-                       Build Settings. Tambien valida y genera el build.
-  Prefabs/ ......... Player_FPS, Target_Diana, Bot_X, Boss_X, balas, manager
-  Materials/ ....... materiales procedurales URP
-  Art/ ............. diana y "X" de placeholders (PNG generados por codigo)
-  Audio/ ........... efectos de acierto, dano, victoria y derrota (WAV)
-  Levels/ .......... ScriptableObjects con la configuracion de cada nivel
-  Scenes/ .......... 4 escenas (menu + 3 niveles)
+  Scripts/Runtime/ ... jugador, arma/arsenal, bala, diana, bots, jefe,
+                       manager/HUD y menus
+  Scripts/Editor/ ... ProjectBuilder: materiales, animaciones, prefabs,
+                       escenas, Build Settings, validacion y build
+  Prefabs/ ......... Player_FPS, Target_Diana, Bot_Soldier, Boss_Soldier,
+                      Bullet_Player, Bullet_Enemy, MuzzleFlash, GameManager
+  Animations/ ...... Soldier.controller (Idle / Run / Shoot)
+  Materials/ ....... materiales URP, incluido el fogonazo transparente
+  Art/ ............. diana, X de respaldo y muzzle_flash.png
+  Audio/ ........... acierto, dano, victoria, derrota y recarga
+  Levels/ .......... configuracion de cada nivel
+  Scenes/ .......... menu + 3 niveles
   DOCUMENTACION.txt  este archivo
 
-Tools/generate_placeholders.py genera de nuevo las texturas y los sonidos.
+Tools/generate_placeholders.py regenera texturas y efectos de sonido.
 
-5. DECISIONES DE DISENO
+7. DECISIONES DE DISENO
 ------------------------------------------------------------------------
-- Se usa el Input System nuevo porque el proyecto ya lo tenia activo
-  (activeInputHandler = 1), en vez de mezclar con el Input Manager antiguo.
-- Las balas son GameObjects reales (proyectiles), no un simple Raycast
-  instantaneo, para que se vea el disparo y se pueda distinguir al objetivo
-  alcanzado. La deteccion de impacto usa un Raycast barrido cada frame:
-  asi no atraviesa objetivos aunque la bala vaya a 95 m/s y no necesita
-  Rigidbody.
-- Cada objetivo tiene un componente Target con tipo (diana, bot o jefe),
-  puntos y vida. Eso permite dar mas o menos puntuacion segun lo que se
-  alcance y destruir bala y objetivo a la vez (Target.TakeHit).
-- Los bots no usan NavMesh: persiguen en linea recta por un recinto abierto.
-  Es mas simple y suficiente para esta actividad.
-- El HUD y los menus usan IMGUI en lugar de Canvas/uGUI: no dependen de
-  assets de UI y son faciles de mantener desde codigo.
-- El Arma usa el modelo "Low Poly AR Weapon Pack 3" que ya estaba en el
-  proyecto y el sonido Gunfire.wav. Si faltan, hay un fusil de cubos y un
-  efecto de fogazo de luz como respaldo.
-- Dianas, bots y jefe son placeholders "X" generados por codigo, listos
-  para sustituirse por los modelos del alumno.
+- Input System nuevo (el proyecto ya lo tenia activo).
+- Proyectiles GameObjects con Raycast barrido: no atraviesan objetivos
+  aunque vayan rapido y no necesitan Rigidbody.
+- Cada objetivo tiene Target (tipo, puntos y vida). Bala y objetivo se
+  destruyen a la vez en Target.TakeHit.
+- Los bots persiguen en linea recta (sin NavMesh). En el nivel 1 se
+  limita su zona a x>=15,5 para que no entren en la sala de tiro.
+- HUD y menus con IMGUI: sin dependencias de Canvas/uGUI.
+- El soldado del alumno se normaliza por bounds para que siempre tenga
+  la altura correcta aunque el FBX venga en otra escala.
 
-6. COMO SUSTITUIR LOS PLACEHOLDERS POR TUS ASSETS
+8. ENTREGA
 ------------------------------------------------------------------------
-Opcion A (desde Unity):
-  1. Importa tus modelos en Assets/.
-  2. Abre Assets/ShootingGallery/Prefabs/Bot_X.prefab (o Boss_X /
-     Target_Diana) y cambia los hijos "Body" y "Mark_X" por tu modelo.
-     Deja el componente Target (y BotAI/BossAI) en la raiz.
-  3. Asegurate de que el modelo tenga Collider; si no, anade CapsuleCollider.
-  4. Abre Player_FPS.prefab y cambia el hijo del arma por tu arma.
-  5. Vulve a pulsar Play. La logica no cambia.
+GitHub: haz commit y push de Assets/ShootingGallery/ y Tools/. No subas
+Library/, Temp/, Logs/ ni Builds/ (estan en .gitignore).
+Itch.io: comprime Builds/Windows en ZIP y subelo como Downloadable game
+> Windows.
 
-Opcion B (dame las rutas): dime donde estan los modelos y los conecto yo en
-los prefabs y las escenas.
-
-7. ENTREGA
-------------------------------------------------------------------------
-GitHub: el proyecto ya tiene repo .git. Los cambios nuevos estan bajo
-Assets/ShootingGallery/ y Tools/. Haz commit y push a tu rama. No subas
-Library/, Temp/ ni Logs/ (ya estan en .gitignore).
-
-Itch.io: menu "Shooting Gallery > Build Windows" genera FPS.exe en
-Builds/Windows. Comprime esa carpeta en ZIP y subela a tu pagina de itch.io
-(elige "Downloadable game", Windows, y marca "This file will be played in
-the browser" solo si usas WebGL).
-
-8. PENDIENTE FUERA DEL CODIGO
-------------------------------------------------------------------------
-La actividad pide enviar las imagenes de personajes/enemigos al grupo de
-WhatsApp para aprobacion: eso tienes que hacerlo tu, yo no puedo enviar
-mensajes. Las imagenes placeholder estan en Assets/ShootingGallery/Art/.
+Pendiente fuera del codigo: enviar las capturas de personajes/enemigos
+al grupo de WhatsApp para aprobacion (eso lo haces tu, no yo).

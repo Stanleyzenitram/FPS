@@ -18,6 +18,7 @@ public class FirstPersonPlayer : MonoBehaviour
 
     private CharacterController _controller;
     private float _pitch;
+    private float _recoilPitch;
     private float _verticalSpeed;
 
     private void Awake()
@@ -41,15 +42,16 @@ public class FirstPersonPlayer : MonoBehaviour
         Mouse mouse = Mouse.current;
         if (kb == null || mouse == null) return;
 
-        // --- Mirar con el raton
+        // --- Mirar con el raton (el recoil se recupera solo)
+        _recoilPitch = Mathf.MoveTowards(_recoilPitch, 0f, 28f * Time.deltaTime);
         if (Cursor.lockState == CursorLockMode.Locked)
         {
             Vector2 delta = mouse.delta.ReadValue();
             transform.Rotate(0f, delta.x * lookSensitivity, 0f);
             _pitch = Mathf.Clamp(_pitch - delta.y * lookSensitivity, -80f, 80f);
-            if (viewCamera != null)
-                viewCamera.transform.localEulerAngles = new Vector3(_pitch, 0f, 0f);
         }
+        if (viewCamera != null)
+            viewCamera.transform.localEulerAngles = new Vector3(_pitch - _recoilPitch, 0f, 0f);
 
         // --- Moverse con flechas (tambien WASD por comodidad)
         float forward = 0f, side = 0f;
@@ -81,6 +83,12 @@ public class FirstPersonPlayer : MonoBehaviour
     public void TakeDamage(int amount)
     {
         GameManager.Instance?.TakeDamage(amount);
+    }
+
+    /// <summary>El arma llama a esto para levantar un poco la camara al disparar.</summary>
+    public void AddRecoil(float pitchAmount)
+    {
+        _recoilPitch = Mathf.Min(10f, _recoilPitch + Mathf.Abs(pitchAmount));
     }
 
     public void LockCursor()

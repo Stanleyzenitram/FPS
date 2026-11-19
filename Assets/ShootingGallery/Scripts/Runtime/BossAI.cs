@@ -28,6 +28,7 @@ public class BossAI : BotAI
         _fireTimer -= Time.deltaTime;
         if (_fireTimer > 0f) return;
         _fireTimer = fireInterval;
+        PlayShootAnimation();
 
         Transform player = FirstPersonPlayer.Instance.transform;
         Vector3 origin = muzzle != null ? muzzle.position : transform.position + Vector3.up * 1.4f;
