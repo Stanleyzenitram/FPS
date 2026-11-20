@@ -162,40 +162,32 @@ a generar el proyecto.
 - ADS: mantener clic derecho baja el FOV de 76 a 54, centra el arma,
   reduce la sensibilidad y la velocidad, y añade un balanceo de camara
   muy sutil al caminar.
-- Personaje en primera persona: usa TU modelo de manos importado
-  (Assets/fp-arms/source/arms.fbx) con color, normal, AO y roughness en un
-  material URP propio (Arms_Imported). El FBX trae los brazos en una pose
-  natural (muñecas juntas delante del cuerpo). Antes se horneaba una pose
-  estirando cada hueso hasta los agarres del fusil y las manos se veian
-  raras: ahora se conserva la pose original del FBX y solo se traslada TODO
-  el modelo para que la muñeca derecha caiga en la empuñadura del arma.
-  Escala natural 0,65 (sin muñecas estiradas ni hombros dentro de la camara).
-  El modelo no tiene collider ni proyecta sombra, asi que no bloquea los
-  disparos. La pose se guarda directamente en Player_FPS.prefab (se actualizo
-  solo ese prefab, sin regenerar escenas). Si el FBX no estuviera disponible,
-  quedan unos brazos procedurales de respaldo (manga camuflada y guantes).
-  El material mantiene el AO a 0,35 y una emision suave para que las manos
-  no se confundan con el pavimento oscuro.
+- Personaje en primera persona: NO se muestran brazos ni manos. El modelo
+  importado (Assets/fp-arms/source/arms.fbx) se probo con su pose original,
+  con la pose horneada y con varias escalas, pero siempre quedaba raro o
+  casi invisible; como no hay otro modelo de manos en el proyecto, se ha
+  quitado la instancia "FirstPersonHands" de Player_FPS.prefab y se han
+  dejado a null todas las referencias de huesos y brazos procedurales.
+  Resultado: vista limpia, solo el arma empuñada, sin manos flotantes ni
+  mallas que se corten con la camara. El componente FirstPersonArms sigue
+  vivo porque gestiona el cargador de la recarga; los archivos del FBX y su
+  material (Arms_Imported) se conservan en el proyecto por si algun dia se
+  quieren recuperar. El prefab se edito directamente, sin regenerar escenas.
 - Puntos de agarre por slot: cada arma guarda sus propios puntos de mano
    derecha y mano de apoyo, medidos sobre su prefab. FirstPersonArms interpola
-   entre esos puntos al cambiar de arma, asi que la pose funciona con los
-   11 slots y no solo con dos.
+   entre esos puntos al cambiar de arma, asi que la pose del arma funciona
+   con los 11 slots y no solo con dos.
 - Recarga animada por fases: al pulsar R (o al querer disparar con el
-  cargador vacio) el arma baja y se gira, la mano izquierda alcanza el
-  cargador, los dedos se cierran, el cargador se extrae y se muestra, se
-  vuelve a insertar con un pequeno golpe y el arma se asienta antes de
-  poder disparar. La derecha acompana el giro del arma. Hay un hueco
-  opcional para un sonido de insercion (reloadInsertClip). La bala se
-  sigue contabilizando al final de la animacion, como antes.
-  R ahora permite recargar tambien con el cargador lleno: siempre se ve la
-  animacion de manos y cargador, pero no se gasta ni se gana municion
-  (needed=0). El movimiento del arma durante la recarga es mas amplio (bajada
-  y giro mayores) y el cargador usa un material metalico oscuro para que se
-  distinga. El desplazamiento de los huesos es ABSOLUTO desde la pose de
-  reposo: antes se acumulaba frame a frame y la mano izquierda se disparaba
-  varios metros fuera de pantalla durante la recarga. Los cambios de este
-  apartado son solo de manos/recarga; los niveles y la ambientacion que
-  anadiste a mano NO se han tocado.
+  cargador vacio) el arma baja y se gira de forma amplia, el cargador se
+  extrae, se muestra y se vuelve a insertar con un pequeno golpe, y el arma
+  se asienta antes de poder disparar. Hay un hueco opcional para un sonido
+  de insercion (reloadInsertClip). La bala se sigue contabilizando al final
+  de la animacion, como antes. El cargador es un objeto propio del prefab
+  (Reload_Magazine) con material metalico oscuro, asi que se ve aunque no
+  haya manos. R permite recargar tambien con el cargador lleno: siempre se
+  ve la animacion, pero no se gasta ni se gana municion (needed=0).
+  Los cambios de este apartado son solo de manos/recarga; los niveles y la
+  ambientacion que anadiste a mano NO se han tocado.
 
 5. COMO ABRIRLO
 ------------------------------------------------------------------------
