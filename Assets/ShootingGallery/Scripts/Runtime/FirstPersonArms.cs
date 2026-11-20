@@ -33,6 +33,11 @@ public class FirstPersonArms : MonoBehaviour
     public Vector3 pistolHandsEuler = Vector3.zero;
     public float pistolHandsScale = 0.96f;
 
+    [Header("Pose natural del modelo importado")]
+    [Tooltip("Mantiene la forma original del FBX: solo acerca la muñeca derecha al arma.")]
+    public bool naturalModelPose = true;
+    public float naturalHandsScale = 0.65f;
+
     [Header("Referencia")]
     public Weapon weapon;
 
@@ -57,6 +62,8 @@ public class FirstPersonArms : MonoBehaviour
     private Quaternion[] _rightFingerBaseRot;
     private Transform _pivot;
     private Vector3 _leftWristRestInRoot, _rightWristRestInRoot;
+    private Vector3 _leftArmRestInRoot, _leftElbowRestInRoot;
+    private Vector3 _rightArmRestInRoot, _rightElbowRestInRoot;
 
     private void Awake()
     {
@@ -86,10 +93,36 @@ public class FirstPersonArms : MonoBehaviour
             if (_pivot == null) _pivot = handsRoot.parent;
             // Muñecas en reposo medidas desde handsRoot: asi el desplazamiento
             // hacia el arma es siempre el mismo aunque cambie la pose del arma.
+            _leftArmRestInRoot = handsRoot.InverseTransformPoint(
+                leftArmBone != null ? leftArmBone.position : handsRoot.position);
+            _leftElbowRestInRoot = handsRoot.InverseTransformPoint(
+                leftElbowBone != null ? leftElbowBone.position : handsRoot.position);
+            _rightArmRestInRoot = handsRoot.InverseTransformPoint(
+                rightArmBone != null ? rightArmBone.position : handsRoot.position);
+            _rightElbowRestInRoot = handsRoot.InverseTransformPoint(
+                rightElbowBone != null ? rightElbowBone.position : handsRoot.position);
             _leftWristRestInRoot = handsRoot.InverseTransformPoint(
                 leftWristBone != null ? leftWristBone.position : handsRoot.position);
             _rightWristRestInRoot = handsRoot.InverseTransformPoint(
                 rightWristBone != null ? rightWristBone.position : handsRoot.position);
+        }
+
+        if (magazineProp != null)
+        {
+            magazineProp.transform.localScale = new Vector3(0.09f, 0.22f, 0.07f);
+            Renderer magRenderer = magazineProp.GetComponent<Renderer>();
+            if (magRenderer != null)
+            {
+                Shader shader = Shader.Find("Universal Render Pipeline/Lit");
+                if (shader != null)
+                {
+                    Material mat = new Material(shader);
+                    mat.color = new Color(0.16f, 0.17f, 0.18f);
+                    if (mat.HasProperty("_Metallic")) mat.SetFloat("_Metallic", 0.55f);
+                    if (mat.HasProperty("_Smoothness")) mat.SetFloat("_Smoothness", 0.35f);
+                    magRenderer.material = mat;
+                }
+            }
         }
     }
 
@@ -121,31 +154,60 @@ public class FirstPersonArms : MonoBehaviour
 
     private void UpdateModel(float reach, float pull, float insert)
     {
-        handsRoot.localPosition = Vector3.Lerp(rifleHandsPosition, pistolHandsPosition, _pistolBlend);
-        handsRoot.localRotation = Quaternion.Euler(Vector3.Lerp(rifleHandsEuler, pistolHandsEuler, _pistolBlend));
-        handsRoot.localScale = Vector3.one * Mathf.Lerp(rifleHandsScale, pistolHandsScale, _pistolBlend);
+        float scale = naturalModelPose
+            ? naturalHandsScale
+            : Mathf.Lerp(rifleHandsScale, pistolHandsScale, _pistolBlend);
+        handsRoot.localScale = Vector3.one * scale;
+        handsRoot.localRotation = Quaternion.Euler(
+            Vector3.Lerp(rifleHandsEuler, pistolHandsEuler, _pistolBlend));
 
         ArmPose pose = GetPose();
 
-        // Los puntos de agarre son los mismos que usan los brazos procedurales:
-        // mano derecha en la empuñadura, izquierda en el guardamanos. Antes el
-        // modelo importado se quedaba a 23 cm a cada lado del fusil.
-        Vector3 rightTarget = pose.rightHand + new Vector3(
-            0.02f * reach, -0.05f * reach - 0.02f * pull, -0.04f * reach - 0.02f * pull);
-        Vector3 leftTarget = pose.leftHand + new Vector3(
-            0.06f * reach + 0.03f * pull, -0.02f * reach,
-            0.02f * reach - 0.03f * pull + 0.02f * insert);
+        if (naturalModelPose)
+        {
+            // El FBX trae los brazos en una pose natural (muñecas juntas y
+            // cerca del cuerpo). Mover cada hueso hasta los agarres del fusil
+            // los estiraba y parecian brazos flotando. Ahora solo desplazamos
+            // TODO el modelo para que la mano derecha caiga en la empuñadura.
+            Vector3 restOffset = Vector3.Scale(_rightWristRestInRoot, Vector3.one * scale);
+            Vector3 targetRoot = pose.rightHand - restOffset;
+            handsRoot.localPosition = targetRoot;
 
-        MoveArm(rightArmBone, rightElbowBone, rightWristBone,
-            _rightWristRestInRoot, rightTarget);
-        MoveArm(leftArmBone, leftElbowBone, leftWristBone,
-            _leftWristRestInRoot, leftTarget);
+            // Durante la recarga la mano izquierda si se desplaza hacia el
+            // cargador: es el gesto que hace visible la animacion.
+            if (reach > 0.01f || pull > 0.01f)
+            {
+                Vector3 leftTarget = pose.magHome + new Vector3(
+                    0.05f * reach + 0.02f * pull, -0.10f * pull, -0.02f * reach);
+                MoveArm(leftArmBone, leftElbowBone, leftWristBone,
+                    _leftArmRestInRoot, _leftElbowRestInRoot, _leftWristRestInRoot, leftTarget);
+            }
+            else
+            {
+                if (leftArmBone != null) leftArmBone.localPosition = _leftArmBasePos;
+                if (leftElbowBone != null) leftElbowBone.localPosition = _leftElbowBasePos;
+                if (leftWristBone != null) leftWristBone.localPosition = _leftWristBasePos;
+            }
+        }
+        else
+        {
+            handsRoot.localPosition = Vector3.Lerp(rifleHandsPosition, pistolHandsPosition, _pistolBlend);
+            Vector3 rightTarget = pose.rightHand + new Vector3(
+                0.02f * reach, -0.05f * reach - 0.02f * pull, -0.04f * reach - 0.02f * pull);
+            Vector3 leftTarget = pose.leftHand + new Vector3(
+                0.06f * reach + 0.03f * pull, -0.02f * reach,
+                0.02f * reach - 0.03f * pull + 0.02f * insert);
+            MoveArm(rightArmBone, rightElbowBone, rightWristBone,
+                _rightArmRestInRoot, _rightElbowRestInRoot, _rightWristRestInRoot, rightTarget);
+            MoveArm(leftArmBone, leftElbowBone, leftWristBone,
+                _leftArmRestInRoot, _leftElbowRestInRoot, _leftWristRestInRoot, leftTarget);
+        }
 
-        // Giro suave de las muñecas para que los dedos rodeen el arma.
+        // Giro muy suave: el modelo ya trae los dedos conformados.
         if (rightWristBone != null)
-            rightWristBone.localRotation = _rightWristBaseRot * Quaternion.Euler(-16f, 0f, -6f);
+            rightWristBone.localRotation = _rightWristBaseRot * Quaternion.Euler(-5f, 0f, -2f);
         if (leftWristBone != null)
-            leftWristBone.localRotation = _leftWristBaseRot * Quaternion.Euler(-8f, 0f, 10f);
+            leftWristBone.localRotation = _leftWristBaseRot * Quaternion.Euler(-4f, 0f, 4f);
     }
 
     /// <summary>
@@ -153,22 +215,19 @@ public class FirstPersonArms : MonoBehaviour
     /// la muñeca caiga sobre el punto de agarre sin estirar la malla importada.
     /// </summary>
     private void MoveArm(Transform arm, Transform elbow, Transform wrist,
-        Vector3 restInRoot, Vector3 targetPivotLocal)
+        Vector3 armRestInRoot, Vector3 elbowRestInRoot, Vector3 wristRestInRoot,
+        Vector3 targetPivotLocal)
     {
         if (_pivot == null || wrist == null || handsRoot == null) return;
 
-        Vector3 restWorld = handsRoot.TransformPoint(restInRoot);
-        Vector3 delta = _pivot.TransformPoint(targetPivotLocal) - restWorld;
+        Vector3 targetWorld = _pivot.TransformPoint(targetPivotLocal);
+        Vector3 delta = targetWorld - handsRoot.TransformPoint(wristRestInRoot);
 
-        // Calcular las tres posiciones antes de asignar: al mover el hombro
-        // tambien se mueven sus hijos, y sumar el delta dos veces los romperia.
-        Vector3 armTarget = arm != null ? arm.position + delta : Vector3.zero;
-        Vector3 elbowTarget = elbow != null ? elbow.position + delta : Vector3.zero;
-        Vector3 wristTarget = wrist.position + delta;
-
-        if (arm != null) arm.position = armTarget;
-        if (elbow != null) elbow.position = elbowTarget;
-        wrist.position = wristTarget;
+        // Posiciones ABSOLUTAS calculadas desde el reposo: sumar el delta a la
+        // posicion actual hacia que los huesos se desplazaran cada frame.
+        if (arm != null) arm.position = handsRoot.TransformPoint(armRestInRoot) + delta;
+        if (elbow != null) elbow.position = handsRoot.TransformPoint(elbowRestInRoot) + delta;
+        wrist.position = targetWorld;
     }
 
     private void UpdateProcedural(float reach, float pull, float insert)
@@ -233,8 +292,8 @@ public class FirstPersonArms : MonoBehaviour
 
     private void AnimateFingers(float reach, float pull, float insert)
     {
-        float leftCurl = 24f * reach + 30f * pull - 22f * insert;
-        float rightCurl = 28f + 6f * reach - 8f * insert;
+        float leftCurl = 10f * reach + 18f * pull - 14f * insert;
+        float rightCurl = naturalModelPose ? 8f + 4f * reach : 28f + 6f * reach - 8f * insert;
         ApplyFingerCurl(leftFingerBones, _leftFingerBaseRot, leftCurl);
         ApplyFingerCurl(rightFingerBones, _rightFingerBaseRot, rightCurl);
     }

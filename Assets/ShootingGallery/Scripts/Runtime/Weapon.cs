@@ -183,13 +183,13 @@ public class Weapon : MonoBehaviour
         float pull = ReloadPull;
         float insert = ReloadInsert;
         Vector3 reloadOffset = new Vector3(
-            0.05f * dip + 0.03f * pull,
-            -0.20f * dip - 0.03f * pull,
-            -0.08f * dip);
+            0.04f * dip + 0.02f * pull,
+            -0.34f * dip - 0.06f * pull,
+            -0.14f * dip);
         Quaternion reloadRotation = Quaternion.Euler(
-            13f * dip + 7f * pull,
-            12f * dip + 16f * pull,
-            -20f * dip - 8f * pull + 5f * insert);
+            20f * dip + 10f * pull,
+            16f * dip + 22f * pull,
+            -32f * dip - 12f * pull + 6f * insert);
 
         Vector3 restPose = Vector3.Lerp(pivot.localPosition - Vector3.back * (_lastKick),
             _pivotBasePosition + ads + reloadOffset, 15f * dt);
@@ -295,7 +295,9 @@ public class Weapon : MonoBehaviour
     {
         if (_reloadTimer > 0f) return;
         WeaponSlot slot = slots != null && slots.Length > 0 ? slots[_current] : null;
-        if (slot == null || slot.magazine >= slot.magazineSize || slot.reserve <= 0) return;
+        // Se permite recargar con el cargador lleno: asi R siempre muestra la
+        // animacion de manos y cargador (no cambia la municion).
+        if (slot == null || slot.reserve <= 0) return;
 
         _reloadTimer = slot.reloadTime;
         _insertSfxPlayed = false;

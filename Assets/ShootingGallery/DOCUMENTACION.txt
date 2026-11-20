@@ -164,26 +164,18 @@ a generar el proyecto.
   muy sutil al caminar.
 - Personaje en primera persona: usa TU modelo de manos importado
   (Assets/fp-arms/source/arms.fbx) con color, normal, AO y roughness en un
-  material URP propio (Arms_Imported). FirstPersonArms mide la posición de
-  reposo de cada muñeca y traslada el brazo entero (hombro, codo y muñeca)
-  hasta los puntos de agarre: derecha en la empuñadura del AR, izquierda en
-  el guardamanos. Antes las muñecas quedaban a 23 cm a cada lado del fusil
-  y parecía que no lo sujetaban. Las muñecas giran ligeramente y los dedos
-  se cierran en la empuñadura; la pose se interpola al cambiar a la M9 y la
-  izquierda sigue acompañando la recarga. Si el FBX no estuviera disponible,
-  quedan unos brazos procedurales de respaldo (manga camuflada y guantes)
-  con el mismo comportamiento. El modelo no tiene collider ni proyecta
-  sombra, asi que no bloquea los disparos. El modelo importado media 1,4 m y
-  metia el hombro detras de la camara: al estar la camara dentro de la malla
-  no se veia nada. Ahora se escala a 0,50 (0,46 con pistola); las muñecas
-  siguen en los agarres, pero los hombros quedan delante y las manos se ven.
-  La pose tambien se hornea en Player_FPS.prefab al generar: los huesos ya
-  estan en los agarres antes de que Update corra por primera vez. Ademas se
-  verifico en Play mode real: la malla se dibuja (mas de 8000 pixeles), pero
-  la textura original era muy oscura (color medio 58,51,37) y las manos se
-  confundian con el pavimento. El material reduce el AO a 0,35 y anade una
-  emision suave, con lo que el color medio en pantalla sube a 167,150,133.
-  La escala final es 0,55 con fusil y 0,50 con pistola.
+  material URP propio (Arms_Imported). El FBX trae los brazos en una pose
+  natural (muñecas juntas delante del cuerpo). Antes se horneaba una pose
+  estirando cada hueso hasta los agarres del fusil y las manos se veian
+  raras: ahora se conserva la pose original del FBX y solo se traslada TODO
+  el modelo para que la muñeca derecha caiga en la empuñadura del arma.
+  Escala natural 0,65 (sin muñecas estiradas ni hombros dentro de la camara).
+  El modelo no tiene collider ni proyecta sombra, asi que no bloquea los
+  disparos. La pose se guarda directamente en Player_FPS.prefab (se actualizo
+  solo ese prefab, sin regenerar escenas). Si el FBX no estuviera disponible,
+  quedan unos brazos procedurales de respaldo (manga camuflada y guantes).
+  El material mantiene el AO a 0,35 y una emision suave para que las manos
+  no se confundan con el pavimento oscuro.
 - Puntos de agarre por slot: cada arma guarda sus propios puntos de mano
    derecha y mano de apoyo, medidos sobre su prefab. FirstPersonArms interpola
    entre esos puntos al cambiar de arma, asi que la pose funciona con los
@@ -195,6 +187,15 @@ a generar el proyecto.
   poder disparar. La derecha acompana el giro del arma. Hay un hueco
   opcional para un sonido de insercion (reloadInsertClip). La bala se
   sigue contabilizando al final de la animacion, como antes.
+  R ahora permite recargar tambien con el cargador lleno: siempre se ve la
+  animacion de manos y cargador, pero no se gasta ni se gana municion
+  (needed=0). El movimiento del arma durante la recarga es mas amplio (bajada
+  y giro mayores) y el cargador usa un material metalico oscuro para que se
+  distinga. El desplazamiento de los huesos es ABSOLUTO desde la pose de
+  reposo: antes se acumulaba frame a frame y la mano izquierda se disparaba
+  varios metros fuera de pantalla durante la recarga. Los cambios de este
+  apartado son solo de manos/recarga; los niveles y la ambientacion que
+  anadiste a mano NO se han tocado.
 
 5. COMO ABRIRLO
 ------------------------------------------------------------------------

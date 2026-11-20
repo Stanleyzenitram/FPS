@@ -39,7 +39,7 @@ public class MenuController : MonoBehaviour
         int titleSize = Mathf.RoundToInt(Mathf.Min(w, h) * 0.085f);
         GUI.Label(new Rect(0, h * 0.12f, w, 84f), "SHOOTING GALLERY",
             Label(titleSize, TextAnchor.MiddleCenter, Gold, true));
-        GUI.Label(new Rect(0, h * 0.24f, w, 40f), "FPS MILITAR  //  3 NIVELES  //  ARSENAL TÁCTICO",
+        GUI.Label(new Rect(0, h * 0.24f, w, 40f), "FPS",
             Label(21, TextAnchor.MiddleCenter, Accent, true));
 
         float bw = Mathf.Min(340f, w * 0.7f);
